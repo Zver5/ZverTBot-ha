@@ -1,0 +1,112 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ZverTBot VPS connection",
+        "description": "Choose how to connect to the VPS.\n\nHome Assistant → VPS tunnel over SSH — use this option if an SSH tunnel to the VPS is already configured on Home Assistant. The integration uses the existing tunnel and does not require a separate key for a direct connection.\n\nDirect SSH connection — use this option if no SSH tunnel is configured or you want Home Assistant to connect directly to the VPS. You can use an existing SSH key or create a new key specifically for this integration. The key must be accessible to Home Assistant.",
+        "data": {
+          "mode": "Connection method"
+        }
+      },
+      "tunnel": {
+        "title": "Existing SSH tunnel",
+        "description": "The integration uses the existing Home Assistant tunnel on 127.0.0.1:8080. No new Internet-facing ports are opened.",
+        "data": {
+          "status_url": "VPS status URL",
+          "poll_interval": "Update interval, sec",
+          "http_timeout": "HTTP timeout, sec"
+        }
+      },
+      "ssh": {
+        "title": "Direct SSH connection",
+        "description": "The connection uses the existing VPS SSH port. Specify the SSH key available to Home Assistant. No new Internet-facing ports are opened.",
+        "data": {
+          "host": "VPS address",
+          "port": "SSH port",
+          "username": "SSH user",
+          "poll_interval": "Update interval, sec"
+        }
+      },
+      "ssh_key": {
+        "title": "SSH key usage",
+        "description": "Choose how the SSH key should be used for a direct VPS connection.",
+        "data": {
+          "source": "SSH key source"
+        }
+      },
+      "ssh_key_create": {
+        "title": "Create SSH key",
+        "description": "A new Ed25519 key will be created inside Home Assistant. The private key will be stored at the selected path and never displayed.",
+        "data": {
+          "key_name": "SSH key name"
+        }
+      },
+      "ssh_key_public": {
+        "title": "SSH key created",
+        "description": "The private key was saved to {key_path}.\n\nAdd this public key to /root/.ssh/authorized_keys on the VPS:\n\n{public_key}\n\nThen continue to test the connection.",
+        "data": {}
+      },
+      "ssh_key_existing": {
+        "title": "Existing SSH key",
+        "description": "Specify the path to an existing private SSH key inside Home Assistant.",
+        "data": {
+          "key_path": "Private key path"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to the VPS or read its status.",
+      "invalid_response": "The VPS returned an invalid ZverTBot status response.",
+      "invalid_key_name": "Invalid SSH key name.",
+      "key_generation_failed": "Unable to create SSH key."
+    },
+    "abort": {
+      "already_configured": "This VPS is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "ZverTBot VPS settings",
+        "description": "Choose the connection method.",
+        "data": {
+          "mode": "Connection method"
+        }
+      },
+      "tunnel": {
+        "title": "Existing SSH tunnel settings",
+        "description": "The existing Home Assistant SSH tunnel is used. The integration does not open new SSH connections to the VPS.",
+        "data": {
+          "status_url": "VPS status URL",
+          "poll_interval": "Update interval, sec",
+          "http_timeout": "HTTP timeout, sec"
+        }
+      },
+      "ssh": {
+        "title": "Direct SSH settings",
+        "description": "The connection uses the configured VPS SSH parameters.",
+        "data": {
+          "host": "VPS address",
+          "port": "SSH port",
+          "username": "SSH user",
+          "key_path": "SSH key path on Home Assistant",
+          "poll_interval": "Update interval, sec"
+        }
+      }
+    }
+  },
+  "selector": {
+    "connection_mode": {
+      "options": {
+        "tunnel": "Home Assistant → VPS tunnel over SSH",
+        "ssh": "Direct SSH connection"
+      }
+    },
+    "ssh_key_source": {
+      "options": {
+        "existing": "Use an existing key",
+        "create": "Create a new key"
+      }
+    }
+  }
+}

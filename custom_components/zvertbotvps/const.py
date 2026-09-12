@@ -1,0 +1,16 @@
+from __future__ import annotations
+
+DOMAIN = "zvertbotvps"
+MODE_TUNNEL = "tunnel"
+MODE_SSH = "ssh"
+
+DEFAULT_STATUS_URL = "http://127.0.0.1:8080/vps-status.json"
+DEFAULT_POLL_INTERVAL = 60
+MIN_POLL_INTERVAL = 30
+MAX_POLL_INTERVAL = 3600
+DEFAULT_HTTP_TIMEOUT = 10
+DEFAULT_SSH_HOST = ""
+DEFAULT_SSH_PORT = 22
+DEFAULT_SSH_USERNAME = "root"
+DEFAULT_SSH_KEY_PATH = "/config/ssh/vps_key"
+DEFAULT_SSH_BACKOFF = 600

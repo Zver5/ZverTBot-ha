@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Подключение ZverTBot VPS",
+        "description": "Выберите способ подключения.",
+        "data": {
+          "mode": "Способ подключения"
+        }
+      },
+      "tunnel": {
+        "title": "Существующий SSH-туннель",
+        "description": "Интеграция использует уже работающий туннель Home Assistant на 127.0.0.1:8080. Новые порты в Интернет не открываются.",
+        "data": {
+          "status_url": "URL статуса VPS",
+          "poll_interval": "Интервал обновления, сек",
+          "http_timeout": "HTTP timeout, сек"
+        }
+      },
+      "ssh": {
+        "title": "Прямое SSH-подключение",
+        "description": "Подключение выполняется по существующему SSH-порту VPS. Укажите путь к ключу, который доступен Home Assistant. Новые порты в Интернет не открываются.",
+        "data": {
+          "host": "Адрес VPS",
+          "port": "SSH-порт",
+          "username": "SSH-пользователь",
+          "key_path": "Путь к SSH-ключу на Home Assistant",
+          "remote_path": "Путь ZverTBot на VPS",
+          "poll_interval": "Интервал обновления, сек"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Не удалось подключиться к VPS или прочитать статус.",
+      "invalid_response": "VPS вернул некорректный статус ZverTBot."
+    },
+    "abort": {
+      "already_configured": "Этот VPS уже настроен."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки ZverTBot VPS",
+        "description": "Выберите способ подключения. Для Direct SSH можно изменить адрес VPS, SSH-порт, пользователя, ключ и путь к установленному ZverTBot.",
+        "data": {
+          "mode": "Способ подключения"
+        }
+      },
+      "tunnel": {
+        "title": "Настройки существующего SSH-туннеля",
+        "description": "Используется уже работающий SSH-туннель Home Assistant. Интеграция не открывает новые SSH-соединения к VPS.",
+        "data": {
+          "status_url": "URL статуса VPS",
+          "poll_interval": "Интервал обновления, сек",
+          "http_timeout": "Таймаут HTTP, сек"
+        }
+      },
+      "ssh": {
+        "title": "Настройки прямого SSH",
+        "description": "Изменения проверяются подключением к VPS. Путь к ZverTBot должен содержать рабочее виртуальное окружение и модуль services.vps_status_cli.",
+        "data": {
+          "host": "Адрес VPS",
+          "port": "SSH-порт",
+          "username": "SSH-пользователь",
+          "key_path": "Путь к SSH-ключу на Home Assistant",
+          "remote_path": "Путь к ZverTBot на VPS",
+          "poll_interval": "Интервал обновления, сек"
+        }
+      }
+    }
+  },
+  "selector": {
+    "connection_mode": {
+      "options": {
+        "tunnel": "Существующий SSH-туннель",
+        "ssh": "Прямое SSH-подключение"
+      }
+    }
+  }
+}

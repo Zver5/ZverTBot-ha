@@ -1,0 +1,276 @@
+views:
+  - type: sections
+    max_columns: 3
+    title: VPS
+    path: vps
+    icon: mdi:vuejs
+    sections:
+      - type: grid
+        column_span: 1
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: >-
+                  {% set ip = state_attr('sensor.zvertbot_vps_all_stats',
+                  'server_ip') %}
+                    {% set mode = state_attr('sensor.zvertbot_vps_all_stats', 'connection_mode') %}
+
+                    ## 🖥️ VPS {{ ip if ip else 'IP неизвестен' }}
+
+                  🔗 **Подключение:** {{ 'Туннель HASS → VPS' if mode ==
+                  'tunnel' else 'Прямое SSH' if mode == 'ssh' else 'Неизвестно'
+                  }}
+              - type: markdown
+                content: >
+                  {% set status = states('sensor.zvertbot_vps_backup_status') %}
+                  {% set last = states('sensor.zvertbot_vps_backup_last') %} {%
+                  set size = states('sensor.zvertbot_vps_backup_size') %} {% set
+                  next = states('sensor.zvertbot_vps_backup_next') %}
+
+                  ### 💾 Бэкапы VPS (Rclone)
+
+                  🟢 **Статус:** {{ '✅ Успешно' if status == 'success' else '❌
+                  Ошибка' if status == 'fail' else '❓ Неизвестно' }}
+
+                  🕒 **Последний:** {{ last | as_timestamp |
+                  timestamp_custom('%d.%m %H:%M', true) if last not in
+                  ['unknown', 'unavailable', 'none', ''] else 'Никогда' }}
+
+                  📦 **Размер:** {{ size }} МБ
+
+                  📅 **Следующий:** {{ next | as_timestamp |
+                  timestamp_custom('%d.%m %H:%M', true) if next not in
+                  ['unknown', 'unavailable', 'none', ''] else 'Не задан' }}
+              - type: horizontal-stack
+                cards:
+                  - type: gauge
+                    entity: sensor.zvertbot_vps_cpu_load
+                    name: CPU
+                    min: 0
+                    max: 5
+                    severity:
+                      green: 0
+                      yellow: 2
+                      red: 3
+                  - type: gauge
+                    entity: sensor.zvertbot_vps_ram_used
+                    name: RAM
+                    min: 0
+                    max: 100
+                    severity:
+                      green: 0
+                      yellow: 70
+                      red: 90
+                    needle: true
+                  - type: gauge
+                    entity: sensor.zvertbot_vps_disk_free
+                    name: HDD свободно
+                    min: 0
+                    max: 10
+                    severity:
+                      green: 5
+                      yellow: 2
+                      red: 0
+                    needle: true
+              - type: markdown
+                content: >-
+                  {% set f2b = state_attr('sensor.zvertbot_vps_all_stats',
+                  'fail2ban') or {} %}
+
+                  ### 🔥 Fail2Ban — Защита сервера
+
+                  🚫 Заблокировано сейчас: **{{ f2b.get('currently_banned', 0)
+                  }}**
+
+                  🚫 Всего заблокировано: **{{ f2b.get('total_banned', 0) }}**
+              - type: markdown
+                content: >
+                  {% set conns = state_attr('sensor.zvertbot_vps_all_stats',
+                  'connections') or [] %}
+
+                  {% set filtered = conns | selectattr('name', 'in',
+                  ['HA-Tunnel','Xray']) | list %}
+
+
+                  ### 🔗 Активные туннели
+
+
+                  | Тип | IP | Порт | Rx | Tx | Статус |
+
+                  |---|---|---|---|---|---|
+
+                  {%- for t in filtered %}
+
+                  | {{ '🌐 HA Tunnel' if t.name == 'HA-Tunnel' else '🚀 Xray' }}
+                  | `{{ t.ip }}` | {{ t.port | default('-') }} | {{ t.rx }} | {{
+                  t.tx }} | {{ t.hs }} |
+
+                  {%- endfor %}
+          - type: entities
+            title: Состояние VPS
+            entities:
+              - entity: sensor.zvertbot_vps_stats_last_check
+                name: Последний опрос
+                icon: mdi:clock-check-outline
+                secondary_info: last_changed
+              - entity: sensor.zvertbot_vps_status_age
+                name: Возраст данных
+                icon: mdi:timer-outline
+              - entity: sensor.zvertbot_vps_vpn_traffic
+                name: VPN-трафик
+                icon: mdi:chart-line
+              - type: section
+                label: Службы
+              - entity: binary_sensor.zvertbot_vps_service_xray
+                name: Xray
+                icon: mdi:shield-lock
+                secondary_info: last_changed
+              - entity: binary_sensor.zvertbot_vps_service_zvertbot
+                name: ZverTBot
+                icon: mdi:robot-outline
+                secondary_info: last_changed
+              - entity: binary_sensor.zvertbot_vps_service_awg_quick_awg0
+                name: AmneziaWG
+                icon: mdi:shield-key-outline
+                secondary_info: last_changed
+              - entity: binary_sensor.zvertbot_vps_service_stats_http
+                name: Stats HTTP
+                icon: mdi:chart-box-outline
+                secondary_info: last_changed
+              - entity: binary_sensor.zvertbot_vps_service_fail2ban
+                name: Fail2ban
+                icon: mdi:shield-check-outline
+                secondary_info: last_changed
+      - type: grid
+        column_span: 2
+        cards:
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: >-
+
+                  {%- set clients =
+                  state_attr('sensor.zvertbot_vps_awg_clients', 'clients') or []
+                  -%}
+
+                  {%- set online = clients | selectattr('online', 'defined') |
+                  selectattr('online', 'eq', true) | list | length -%}
+
+                  ## 🛡️ AmneziaWG
+
+                  🟢 **Онлайн: {{ online }} / {{ clients | length }}**
+
+                  {%- if clients %}
+
+                  <table width="100%" style="width:100%;"> <tr> <th
+                  width="34%">🛡️ Клиент AWG</th> <th width="33%">📍 GeoIP</th>
+                  <th width="33%">👥 Статус</th> </tr>
+
+                  {%- for p in clients -%}
+
+                  {%- set geo = p.get('geoip', {}) -%} {%- set city =
+                  geo.get('city', '') -%} {%- set isp = geo.get('isp', '') -%}
+                  {%- set emoji = geo.get('emoji', '❓') -%} {%- set mobile =
+                  geo.get('mobile', false) -%}
+
+                  {%- set last_ip = p.get('last_ip', '') -%} {%- set geo_ip =
+                  geo.get('ip', '') -%} {%- set display_ip = last_ip if last_ip
+                  else geo_ip -%}
+
+                  {%- set last_seen = p.get('last_seen', 'never') -%}
+
+                  <tr>
+
+                  <td width="34%"> <b>{{ p.get('name', '') }}</b><br>
+                  <small><code>{{ p.get('ip', '') }}</code></small><br>
+                  <small>📊 {{ p.get('total', '—') }}</small> </td>
+
+                  <td width="33%"> {% if city %} {{ emoji }} {% if mobile %}≈ {%
+                  endif %}{{ city }}<br> <small>{{ isp }}</small> {% if mobile
+                  %} <br><small>⚠️ Примерное местоположение</small> {% endif %}
+                  {% else %} {{ emoji }} {% endif %} </td>
+
+                  <td width="33%"> {% if p.get('online', false) %} 🟢 Online {%
+                  if display_ip %} <br><small>{{ display_ip }}</small> {% endif
+                  %} {% else %} ⚫ Offline {% if display_ip %} <br><small>{{
+                  display_ip }}</small> {% endif %} {% if last_seen and
+                  last_seen != 'never' %} <br><small>🕐 {{ last_seen }}</small>
+                  {% else %} <br><small>🕐 Никогда</small> {% endif %} {% endif
+                  %} </td>
+
+                  </tr>
+
+                  {%- endfor -%} </table>
+
+                  {%- else -%} <i>Нет данных</i> {%- endif -%}
+          - type: vertical-stack
+            cards:
+              - type: markdown
+                content: >-
+                  {%- set clients =
+                  state_attr('sensor.zvertbot_vps_xray_clients', 'clients') or
+                  [] -%}
+
+                  {%- set online = clients | selectattr('online') | list |
+                  length + clients | selectattr('hs', 'eq', 'active') |
+                  rejectattr('online') | list | length -%}
+
+                  ## ⚡ Xray / VLESS
+
+                  🟢 **Онлайн: {{ online }} / {{ clients | length }}**
+
+                  {%- if clients %}
+
+                  <table width="100%" style="width:100%;"> <tr> <th
+                  width="34%">⚡ Клиент VLESS</th> <th width="33%">📍 GeoIP</th>
+                  <th width="33%">👥 Статус</th> </tr>
+
+                  {%- for c in clients -%}
+
+                  {%- set geo = c.get('geoip', {}) -%} {%- set city =
+                  geo.get('city', '') -%} {%- set isp = geo.get('isp', '') -%}
+                  {%- set emoji = geo.get('emoji', '❓') -%} {%- set mobile =
+                  geo.get('mobile', false) -%}
+
+                  {%- set last_ip = c.get('last_ip', '') -%} {%- set geo_ip =
+                  geo.get('ip', '') -%} {%- set display_ip = last_ip if last_ip
+                  else geo_ip -%}
+
+                  {%- set last_seen = c.get('last_seen', 'never') -%}
+
+                  <tr>
+
+                  <td width="34%"> <b>{{ c.get('name', '') }}</b><br> <small>📊
+                  {{ c.get('total', '—') }}</small> </td>
+
+                  <td width="33%"> {% if city %} {{ emoji }} {% if mobile %}≈ {%
+                  endif %}{{ city }}<br> <small>{{ isp }}</small> {% if mobile
+                  %} <br><small>⚠️ Примерное местоположение</small> {% endif %}
+                  {% else %} {{ emoji }} {% endif %} </td>
+
+                  <td width="33%"> {% if c.get('online', false) or c.get('hs',
+                  '') == 'active' %} 🟢 Online {% if display_ip %} <br><small>{{
+                  display_ip }}</small> {% endif %} {% else %} ⚫ Offline {% if
+                  display_ip %} <br><small>{{ display_ip }}</small> {% endif %}
+                  {% if last_seen and last_seen != 'never' %} <br><small>🕐 {{
+                  last_seen[:10].split('-')[2] }}.{{
+                  last_seen[:10].split('-')[1] }}.{{ last_seen[:4] }} {{
+                  last_seen[11:19] }}</small> {% else %} <br><small>🕐
+                  Никогда</small> {% endif %} {% endif %} </td>
+
+                  </tr>
+
+                  {%- endfor -%} </table>
+
+                  {%- else -%} <i>Нет данных</i> {%- endif -%}
+      - type: grid
+        column_span: 2
+        cards: []
+    cards: []
+background:
+  opacity: 100
+  alignment: center
+  size: cover
+  repeat: repeat
+  attachment: fixed

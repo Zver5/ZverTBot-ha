@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Подключение ZverTBot VPS",
+        "description": "Выберите способ подключения.",
+        "data": {
+          "mode": "Способ подключения"
+        }
+      },
+      "tunnel": {
+        "title": "Существующий SSH-туннель",
+        "description": "Интеграция использует уже работающий туннель Home Assistant на 127.0.0.1:8080. Новые порты в Интернет не открываются.",
+        "data": {
+          "status_url": "URL статуса VPS",
+          "poll_interval": "Интервал обновления, сек",
+          "http_timeout": "HTTP timeout, сек"
+        }
+      },
+      "ssh": {
+        "title": "Прямое SSH-подключение",
+        "description": "Подключение выполняется по существующему SSH-порту VPS. Укажите путь к ключу, который доступен Home Assistant. Новые порты в Интернет не открываются.",
+        "data": {
+          "host": "Адрес VPS",
+          "port": "SSH-порт",
+          "username": "SSH-пользователь",
+          "key_path": "Путь к SSH-ключу на Home Assistant",
+          "remote_path": "Путь ZverTBot на VPS",
+          "poll_interval": "Интервал обновления, сек"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Не удалось подключиться к VPS или прочитать статус.",
+      "invalid_response": "VPS вернул некорректный статус ZverTBot."
+    },
+    "abort": {
+      "already_configured": "Этот VPS уже настроен."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки ZverTBot VPS",
+        "description": "Параметры можно изменить без удаления интеграции. В режиме Direct SSH повторные подключения ограничиваются, чтобы не создавать нагрузку на sshd/Fail2Ban.",
+        "data": {
+          "mode": "Connection method"
+        }
+      },
+      "tunnel": {
+        "title": "Настройки существующего SSH-туннеля",
+        "description": "Используется уже работающий SSH-туннель Home Assistant. Интеграция не открывает новые SSH-соединения к VPS.",
+        "data": {
+          "status_url": "URL статуса VPS",
+          "poll_interval": "Интервал обновления, сек",
+          "http_timeout": "HTTP timeout, сек"
+        }
+      },
+      "ssh": {
+        "title": "Настройки прямого SSH",
+        "description": "Используется одно постоянное SSH-соединение с keepalive. После ошибки повторные подключения ограничиваются, чтобы не нагружать sshd и Fail2Ban.",
+        "data": {
+          "host": "Адрес VPS",
+          "port": "SSH-порт",
+          "username": "SSH-пользователь",
+          "key_path": "Путь к SSH-ключу на Home Assistant",
+          "remote_path": "Путь ZverTBot на VPS",
+          "poll_interval": "Интервал обновления, сек"
+        }
+      }
+    }
+  },
+  "selector": {
+    "connection_mode": {
+      "options": {
+        "tunnel": "Existing SSH tunnel",
+        "ssh": "Direct SSH connection"
+      }
+    }
+  }
+}
