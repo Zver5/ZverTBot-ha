@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +13,9 @@ from .const import (
     DEFAULT_SSH_USERNAME,
 )
 from .normalize import normalize_status
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class SSHStatusError(Exception):
@@ -70,18 +75,50 @@ class SSHStatusClient:
             if not key.is_file():
                 raise SSHStatusError(f"SSH key not found: {key}")
 
+            command = self._ssh_command()
+            started = time.monotonic()
+            _LOGGER.debug(
+                "Starting VPS SSH status request to %s@%s:%s",
+                self.username,
+                self.host,
+                self.port,
+            )
             try:
                 result = subprocess.run(
-                    self._ssh_command(),
+                    command,
                     capture_output=True,
                     text=True,
                     timeout=30,
                     check=False,
                 )
+            except subprocess.TimeoutExpired as err:
+                elapsed = time.monotonic() - started
+                _LOGGER.warning(
+                    "VPS SSH status request timed out after %.2fs "
+                    "(subprocess timeout=%ss)",
+                    elapsed,
+                    err.timeout,
+                )
+                raise SSHStatusError(
+                    f"TimeoutExpired: {err!r}"
+                ) from err
             except Exception as err:
+                elapsed = time.monotonic() - started
+                _LOGGER.warning(
+                    "VPS SSH status request failed after %.2fs: %s",
+                    elapsed,
+                    err,
+                )
                 raise SSHStatusError(
                     f"{type(err).__name__}: {err!r}"
                 ) from err
+
+            elapsed = time.monotonic() - started
+            _LOGGER.debug(
+                "VPS SSH status request finished in %.2fs with exit code %s",
+                elapsed,
+                result.returncode,
+            )
 
         if result.returncode != 0:
             error = (result.stderr or result.stdout).strip()
