@@ -46,6 +46,18 @@ def load_sensor_module():
 
     update_coordinator.CoordinatorEntity = CoordinatorEntity
 
+    entity_registry = types.ModuleType(
+        "homeassistant.helpers.entity_registry"
+    )
+
+    class EntityRegistry:
+        entities = {}
+
+        def async_remove(self, entity_id):
+            pass
+
+    entity_registry.async_get = lambda hass: EntityRegistry()
+
     dt = types.ModuleType("homeassistant.util.dt")
 
     homeassistant = types.ModuleType("homeassistant")
@@ -70,6 +82,7 @@ def load_sensor_module():
             "homeassistant.core": core,
             "homeassistant.helpers": helpers,
             "homeassistant.helpers.update_coordinator": update_coordinator,
+            "homeassistant.helpers.entity_registry": entity_registry,
             "homeassistant.util": util,
             "homeassistant.util.dt": dt,
         }
@@ -143,49 +156,34 @@ def test_all_stats_attributes_exclude_large_duplicate_collections():
     assert "xray" not in attrs
 
 
-def test_client_identity_distinguishes_clients_with_same_ip():
-    module = load_sensor_module()
 
-    first = {
-        "name": "Shkurin",
-        "ip": "192.0.2.10",
-        "proto": "vless",
-    }
-    second = {
-        "name": "ZverX",
-        "ip": "192.0.2.10",
-        "proto": "vless",
-    }
-
-    assert module._client_identity("xray", first) != module._client_identity(
-        "xray", second
-    )
-
-
-def test_xray_client_name_uses_normal_casing():
+def test_client_collections_are_exposed_by_aggregate_sensors():
     module = load_sensor_module()
 
     class Coordinator:
-        entry = type("Entry", (), {"entry_id": "test"})()
         data = {
+            "awg": {
+                "clients": [
+                    {"name": "Valya", "ip": "10.66.66.4", "total": "68.70 GB"}
+                ]
+            },
             "xray": {
                 "clients": [
-                    {
-                        "name": "ValyaX",
-                        "ip": "192.0.2.10",
-                        "total": "1 GB",
-                    }
+                    {"name": "Test", "ip": "192.0.2.10", "total": "1 GB"}
                 ]
-            }
+            },
         }
 
         def clients(self, kind):
             return self.data.get(kind, {}).get("clients", [])
 
-    sensor = module.VPSClientSensor(
-        Coordinator(),
-        "xray",
-        {"name": "ValyaX", "ip": "192.0.2.10"},
-    )
+    awg = object.__new__(module.VPSAWGClientsSensor)
+    awg.coordinator = Coordinator()
 
-    assert sensor._attr_name == "Xray Client ValyaX"
+    xray = object.__new__(module.VPSXrayClientsSensor)
+    xray.coordinator = Coordinator()
+
+    assert awg.native_value == 1
+    assert awg.extra_state_attributes["clients"][0]["name"] == "Valya"
+    assert xray.native_value == 1
+    assert xray.extra_state_attributes["clients"][0]["name"] == "Test"

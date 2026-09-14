@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
 import re
 from typing import Any
 
@@ -9,6 +8,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
@@ -85,9 +85,13 @@ METRICS = (
 )
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities
+) -> None:
     coordinator: ZverTBotCoordinator = hass.data[DOMAIN][entry.entry_id]
-    entities: list[SensorEntity] = [VPSMetricSensor(coordinator, metric) for metric in METRICS]
+    entities: list[SensorEntity] = [
+        VPSMetricSensor(coordinator, metric) for metric in METRICS
+    ]
     entities += [
         VPSAllStatsSensor(coordinator),
         VPSConnectionsSensor(coordinator),
@@ -101,37 +105,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         VPSStatsUpdatedSensor(coordinator),
         VPSFreshnessSensor(coordinator),
     ]
+
+    await _remove_legacy_client_entities(hass, entry)
     async_add_entities(entities)
 
-    client_entities: dict[str, VPSClientSensor] = {}
 
-    def sync_client_entities() -> None:
-        new_entities: list[VPSClientSensor] = []
-        for kind in ("awg", "xray"):
-            for client in coordinator.clients(kind):
-                identity = _client_identity(kind, client)
-                if identity in client_entities:
-                    continue
-                entity = VPSClientSensor(coordinator, kind, client)
-                client_entities[identity] = entity
-                new_entities.append(entity)
-        if new_entities:
-            async_add_entities(new_entities)
+async def _remove_legacy_client_entities(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Remove legacy per-client entities from older integration versions."""
+    registry = er.async_get(hass)
+    prefix = f"{entry.entry_id}_"
 
-    sync_client_entities()
-    coordinator.async_add_listener(sync_client_entities)
-
-
-def _client_identity(kind: str, client: dict[str, Any]) -> str:
-    raw = str(
-        client.get("uuid")
-        or client.get("id")
-        or client.get("name")
-        or client.get("ip")
-        or "unknown"
-    )
-    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
-    return f"{kind}:{digest}"
+    for entity in list(registry.entities.values()):
+        if entity.config_entry_id != entry.entry_id:
+            continue
+        if entity.unique_id and (
+            entity.unique_id.startswith(f"{prefix}awg:")
+            or entity.unique_id.startswith(f"{prefix}xray:")
+        ):
+            registry.async_remove(entity.entity_id)
 
 
 class VPSBaseEntity(CoordinatorEntity[ZverTBotCoordinator], SensorEntity):
@@ -140,40 +133,6 @@ class VPSBaseEntity(CoordinatorEntity[ZverTBotCoordinator], SensorEntity):
     def __init__(self, coordinator: ZverTBotCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_device_info = _device_info(coordinator)
-
-
-class VPSClientSensor(VPSBaseEntity):
-    """Per-client VPN statistics while retaining the aggregate dashboard contract."""
-
-    def __init__(self, coordinator: ZverTBotCoordinator, kind: str, client: dict[str, Any]) -> None:
-        super().__init__(coordinator)
-        self.kind = kind
-        self.identity = _client_identity(kind, client)
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_{self.identity}"
-        kind_name = "AWG" if kind == "awg" else "Xray" if kind == "xray" else kind
-        self._attr_name = f"{kind_name} Client {client.get('name') or client.get('ip') or 'unknown'}"
-        self._attr_native_unit_of_measurement = "GB"
-
-    def _client(self) -> dict[str, Any]:
-        for client in self.coordinator.clients(self.kind):
-            if _client_identity(self.kind, client) == self.identity:
-                return client
-        return {}
-
-    @property
-    def native_value(self):
-        client = self._client()
-        return round(_client_total_gb(client), 3) if client else None
-
-    @property
-    def extra_state_attributes(self):
-        client = self._client()
-        if not client:
-            return {"status": "offline", "available": False}
-        attrs = dict(client)
-        attrs["status"] = "online" if _client_online(client) else "offline"
-        attrs["available"] = True
-        return attrs
 
 
 class VPSMetricSensor(VPSBaseEntity):

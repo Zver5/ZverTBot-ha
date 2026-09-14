@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 
 from homeassistant import config_entries
@@ -35,6 +36,9 @@ class CannotConnect(HomeAssistantError):
 
 class InvalidResponse(HomeAssistantError):
     """VPS status response was invalid."""
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ZverTBotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -196,12 +200,19 @@ class ZverTBotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 key_path = Path("/config/ssh") / key_name
                 try:
+                    await asyncio.to_thread(
+                        key_path.parent.mkdir,
+                        parents=True,
+                        exist_ok=True,
+                    )
                     public_key = await asyncio.to_thread(
                         generate_ssh_key_pair,
                         key_path,
                     )
-                except SSHKeyGenerationError:
+                except (SSHKeyGenerationError, OSError) as err:
                     errors["base"] = "key_generation_failed"
+                    # Keep the detailed reason in logs, never in the UI.
+                    _LOGGER.exception("Unable to create SSH key at %s: %s", key_path, err)
                 else:
                     self._ssh_data["key_path"] = str(key_path)
                     self._public_key = public_key

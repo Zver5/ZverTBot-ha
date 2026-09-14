@@ -1,7 +1,9 @@
 {
   "domain": "zvertbotvps",
   "name": "ZverTBot",
-  "codeowners": [],
+  "codeowners": [
+    "@Zver5"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/Zver5/ZverTBot-ha",
   "iot_class": "local_polling",

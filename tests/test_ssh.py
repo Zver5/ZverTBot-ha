@@ -209,7 +209,7 @@ def test_default_ssh_key_path_is_container_accessible():
 def test_generate_ssh_key_pair_creates_ed25519_key(tmp_path):
     module = load_keygen_module()
 
-    private_key = tmp_path / "zvertbot_vps"
+    private_key = tmp_path / "ssh" / "nested" / "zvertbot_vps"
 
     public_key = module.generate_ssh_key_pair(private_key)
 
