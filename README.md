@@ -56,7 +56,7 @@ ZverTBot-ha предоставляет Home Assistant доступ к данны
 * активные туннели;
 * клиенты AmneziaWG;
 * клиенты Xray / VLESS;
-* статус и трафик клиентов;
+* статус и трафик клиентов через агрегированные AWG/Xray-сущности;
 * GeoIP-информация.
 
 Интеграция также поддерживает:
@@ -322,7 +322,7 @@ binary_sensor.zvertbot_vps_service_fail2ban
 
 ## VPN-клиенты
 
-Для AmneziaWG и Xray / VLESS доступны:
+Для AmneziaWG и Xray / VLESS подробные данные клиентов доступны в attributes агрегированных сущностей:
 
 * имя;
 * Online / Offline;
@@ -332,6 +332,8 @@ binary_sensor.zvertbot_vps_service_fail2ban
 * GeoIP;
 * оператор / ISP;
 * приблизительное местоположение для мобильных подключений.
+
+Отдельные Home Assistant-сущности для каждого клиента не создаются. Это предотвращает накопление устаревших (zombie) entities при изменении списка клиентов.
 
 ## Основные сущности
 
@@ -499,6 +501,8 @@ sensor.zvertbot_vps_status_age
 
 Если интеграция создавала отдельный SSH-ключ и он больше не используется, его можно удалить отдельно.
 
+При обновлении с версий, создававших отдельные entities для каждого AWG/Xray-клиента, старые legacy entities удаляются из Entity Registry. Текущие данные клиентов доступны через агрегированные AWG/Xray-сенсоры.
+
 ---
 
 # Разработка
@@ -517,6 +521,9 @@ custom_components/zvertbotvps/
 ├── coordinator.py
 ├── keygen.py
 ├── manifest.json
+├── diagnostics.py
+├── sensor.py
+├── binary_sensor.py
 ├── ssh.py
 └── translations/
 ```
@@ -530,7 +537,7 @@ tests/
 Запуск:
 
 ```bash
-/root/ZverTBot/.venv/bin/python -m pytest -q
+pytest -q
 ```
 
 Проверка Git:
@@ -546,8 +553,10 @@ git diff --check
 # Версия
 
 ```text
-1.0.0
+1.1.0
 ```
+
+История изменений находится в [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
