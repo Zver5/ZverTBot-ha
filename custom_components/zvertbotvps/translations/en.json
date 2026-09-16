@@ -68,9 +68,13 @@
     "step": {
       "init": {
         "title": "ZverTBot VPS settings",
-        "description": "Choose the connection method.",
+        "description": "Change the connection settings or test the current connection to the VPS.",
         "data": {
           "mode": "Connection method"
+        },
+        "menu_options": {
+          "settings": "Change settings",
+          "test_connection": "Test connection"
         }
       },
       "tunnel": {
@@ -92,6 +96,17 @@
           "key_path": "SSH key path on Home Assistant",
           "poll_interval": "Update interval, sec"
         }
+      },
+      "settings": {
+        "title": "ZverTBot VPS settings",
+        "description": "Choose the connection method and change its parameters.",
+        "data": {
+          "mode": "Connection method"
+        }
+      },
+      "test_connection": {
+        "title": "Connection test",
+        "description": "The connection to the VPS was successful.\n\nVPS address: {server_ip}\n\nThis is a one-time test and does not change the automatic monitoring state."
       }
     }
   },

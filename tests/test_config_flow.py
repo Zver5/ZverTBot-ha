@@ -181,3 +181,67 @@ def test_public_key_step_accepts_errors():
 
     assert "errors=None" in block
     assert "errors=errors or {}" in block
+
+
+def test_options_flow_has_connection_test_menu():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+
+    start = source.index("class ZverTBotOptionsFlow(")
+    block = source[start:]
+
+    assert 'async def async_step_init(self, user_input=None):' in block
+    assert 'menu_options=["settings", "test_connection"]' in block
+    assert "async def async_step_settings(" in block
+    assert "async def async_step_test_connection(" in block
+
+
+def test_options_flow_connection_test_uses_saved_configuration():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+
+    start = source.index("    async def async_step_test_connection(")
+    end = source.index("\n    async def _test_tunnel(", start)
+    block = source[start:end]
+
+    assert "self.config_entry.data" in block
+    assert "self.config_entry.options" in block
+    assert "_test_ssh(current)" in block
+    assert "_test_tunnel(current)" in block
+    assert 'errors={"base": "cannot_connect"}' in block
+    assert 'errors={"base": "invalid_response"}' in block
+    assert '"server_ip": server_ip or "unknown"' in block
+
+
+def test_options_flow_connection_test_has_translations():
+    import json
+
+    for language in ("ru", "en"):
+        path = (
+            ROOT
+            / "custom_components"
+            / "zvertbotvps"
+            / "translations"
+            / f"{language}.json"
+        )
+        data = json.loads(path.read_text(encoding="utf-8"))
+        step = data["options"]["step"]
+
+        assert "init" in step
+        assert "settings" in step
+        assert "test_connection" in step
+        assert "menu_options" in step["init"]
+        assert "settings" in step["init"]["menu_options"]
+        assert "test_connection" in step["init"]["menu_options"]
+
+
+def test_options_flow_connection_test_imports_dependencies():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "from homeassistant.helpers.aiohttp_client import async_get_clientsession" in source
+    assert "from .config_flow import CannotConnect, InvalidResponse" in source
+    assert "from .normalize import normalize_status" in source
