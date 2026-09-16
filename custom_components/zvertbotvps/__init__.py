@@ -8,6 +8,7 @@ from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry, OptionsFlowWithReload
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
 
 import voluptuous as vol
@@ -32,6 +33,9 @@ from .ssh import SSHStatusClient, SSHStatusError, read_vps_status
 PLATFORMS = ["sensor", "binary_sensor"]
 
 _LOGGER = logging.getLogger(__name__)
+
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
