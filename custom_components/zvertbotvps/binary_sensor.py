@@ -14,8 +14,47 @@ from .coordinator import ZverTBotCoordinator
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities) -> None:
     coordinator: ZverTBotCoordinator = hass.data[DOMAIN][entry.entry_id]
-    entities = [VPSServiceBinarySensor(coordinator, name) for name in coordinator.data.get("services", {})]
+    entities = [
+        VPSConnectionBinarySensor(coordinator),
+        *[
+            VPSServiceBinarySensor(coordinator, name)
+            for name in coordinator.data.get("services", {})
+        ],
+    ]
     async_add_entities(entities)
+
+
+class VPSConnectionBinarySensor(
+    CoordinatorEntity[ZverTBotCoordinator], BinarySensorEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "Connection"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+
+    def __init__(self, coordinator: ZverTBotCoordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_connection"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
+            "name": "ZverTBot VPS",
+            "manufacturer": "ZverTBot",
+            "model": "VPS",
+        }
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.connection_state == "connected"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        return {
+            "state": self.coordinator.connection_state,
+            "mode": self.coordinator.mode,
+            "last_success": self.coordinator.last_success,
+            "last_error": self.coordinator.last_error,
+            "consecutive_failures": self.coordinator.consecutive_failures,
+            "next_retry": self.coordinator.next_retry,
+        }
 
 
 class VPSServiceBinarySensor(CoordinatorEntity[ZverTBotCoordinator], BinarySensorEntity):

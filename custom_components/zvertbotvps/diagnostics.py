@@ -70,6 +70,15 @@ async def async_get_config_entry_diagnostics(
             else None
         ),
         "last_update_success": coordinator.last_update_success,
+        "connection": {
+            "state": getattr(coordinator, "connection_state", None),
+            "last_success": getattr(coordinator, "last_success", None),
+            "last_error": getattr(coordinator, "last_error", None),
+            "consecutive_failures": getattr(
+                coordinator, "consecutive_failures", 0
+            ),
+            "next_retry": getattr(coordinator, "next_retry", None),
+        },
         "data": _redact(coordinator.data),
     }
 

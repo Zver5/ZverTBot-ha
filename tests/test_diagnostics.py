@@ -73,3 +73,45 @@ def test_redact_masks_sensitive_values_recursively():
     assert result["clients"][0]["last_ip"] == "**REDACTED**"
     assert result["clients"][1]["uuid"] == "**REDACTED**"
     assert result["safe"] == "visible"
+
+
+def test_config_entry_diagnostics_include_connection_state():
+    module = load_diagnostics_module()
+
+    class Coordinator:
+        mode = "ssh"
+        update_interval = None
+        last_update_success = False
+        data = {"server": {"ip": "192.0.2.10"}}
+        connection_state = "paused"
+        last_success = "2026-09-16T20:00:00+00:00"
+        last_error = "connection refused"
+        consecutive_failures = 3
+        next_retry = "2026-09-16T20:10:00+00:00"
+
+    class Entry:
+        entry_id = "test-entry"
+        title = "Test VPS"
+        data = {"mode": "ssh", "host": "192.0.2.10"}
+        options = {}
+
+    class Hass:
+        data = {
+            "zvertbotvps": {
+                "test-entry": Coordinator(),
+            }
+        }
+
+    result = __import__("asyncio").run(
+        module.async_get_config_entry_diagnostics(Hass(), Entry())
+    )
+
+    connection = result["coordinator"]["connection"]
+
+    assert connection == {
+        "state": "paused",
+        "last_success": "2026-09-16T20:00:00+00:00",
+        "last_error": "connection refused",
+        "consecutive_failures": 3,
+        "next_retry": "2026-09-16T20:10:00+00:00",
+    }

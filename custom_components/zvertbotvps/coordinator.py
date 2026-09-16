@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from aiohttp import ClientError
@@ -44,7 +44,12 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.session = async_get_clientsession(hass)
         self._ssh_blocked_until = 0.0
+        self._ssh_retry_at: datetime | None = None
         self._ssh_client: SSHStatusClient | None = None
+        self._connection_state = "unknown"
+        self._last_success: str | None = None
+        self._last_error: str | None = None
+        self._consecutive_failures = 0
         if self.mode == MODE_SSH:
             self._ssh_client = SSHStatusClient(
                 str(self.settings["host"]),
@@ -72,20 +77,33 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 response.raise_for_status()
                 data = await response.json(content_type=None)
         except (ClientError, TimeoutError, ValueError) as err:
+            self._mark_connection_failure(str(err))
             raise UpdateFailed(f"Unable to read VPS status: {err}") from err
-        return self._validate(data)
+        try:
+            result = self._validate(data)
+        except UpdateFailed as err:
+            self._mark_connection_failure(str(err))
+            raise
+        self._mark_connection_success()
+        return result
 
     async def _async_update_ssh(self) -> dict[str, Any]:
         now = asyncio.get_running_loop().time()
         if now < self._ssh_blocked_until:
             remaining = int(self._ssh_blocked_until - now)
+            self._connection_state = "paused"
             raise UpdateFailed(f"SSH reconnect paused for {remaining}s after failure")
         if self._ssh_client is None:
+            self._mark_connection_failure("SSH client is not configured")
             raise UpdateFailed("SSH client is not configured")
         try:
             data = await asyncio.to_thread(self._ssh_client.read)
         except SSHStatusResponseError as err:
             self._ssh_blocked_until = now + DEFAULT_SSH_BACKOFF
+            self._ssh_retry_at = datetime.now(timezone.utc) + timedelta(
+                seconds=DEFAULT_SSH_BACKOFF
+            )
+            self._mark_connection_failure(str(err))
             _LOGGER.warning(
                 "VPS SSH returned an invalid status response: %s", err
             )
@@ -95,6 +113,10 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except SSHStatusError as err:
             self._ssh_client.close()
             self._ssh_blocked_until = now + DEFAULT_SSH_BACKOFF
+            self._ssh_retry_at = datetime.now(timezone.utc) + timedelta(
+                seconds=DEFAULT_SSH_BACKOFF
+            )
+            self._mark_connection_failure(str(err))
             _LOGGER.warning(
                 "VPS SSH connection failed; backoff enabled: %s", err
             )
@@ -102,7 +124,52 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 f"Unable to read VPS status over SSH: {err}"
             ) from err
         self._ssh_blocked_until = 0.0
-        return self._validate(data)
+        self._ssh_retry_at = None
+        try:
+            result = self._validate(data)
+        except UpdateFailed as err:
+            self._mark_connection_failure(str(err))
+            raise
+        self._mark_connection_success()
+        return result
+
+    def _mark_connection_success(self) -> None:
+        self._connection_state = "connected"
+        self._last_success = datetime.now(timezone.utc).isoformat()
+        self._last_error = None
+        self._consecutive_failures = 0
+
+    def _mark_connection_failure(self, error: str) -> None:
+        self._connection_state = "failed"
+        self._last_error = error
+        self._consecutive_failures += 1
+
+    @property
+    def connection_state(self) -> str:
+        if self.mode == MODE_SSH and self._ssh_retry_at is not None:
+            if self._ssh_retry_at > datetime.now(timezone.utc):
+                return "paused"
+        return self._connection_state
+
+    @property
+    def last_success(self) -> str | None:
+        return self._last_success
+
+    @property
+    def last_error(self) -> str | None:
+        return self._last_error
+
+    @property
+    def consecutive_failures(self) -> int:
+        return self._consecutive_failures
+
+    @property
+    def next_retry(self) -> str | None:
+        if self.mode != MODE_SSH or self._ssh_retry_at is None:
+            return None
+        if self._ssh_retry_at <= datetime.now(timezone.utc):
+            return None
+        return self._ssh_retry_at.replace(microsecond=0).isoformat()
 
     @staticmethod
     def _validate(data: Any) -> dict[str, Any]:
