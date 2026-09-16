@@ -1,4 +1,4 @@
-# ZverTBot — интеграция для Home Assistant
+# ZverTBot-ha — интеграция для Home Assistant
 
 **ZverTBot-ha** — интеграция для [Home Assistant](https://www.home-assistant.io/), которая получает статистику VPS и инфраструктуры **ZverTBot** по SSH.
 
@@ -9,7 +9,7 @@
 * **прямое SSH-подключение к VPS**;
 * **существующий SSH-туннель** между Home Assistant и VPS.
 
-Если постоянный SSH-туннель уже используется в инфраструктуре, рекомендуется использовать его.
+Если прямое SSH-подключение уже используется в инфраструктуре, рекомендуется использовать его.
 
 > **ZverTBot-ha не заменяет ZverTBot.**
 > ZverTBot отвечает за серверную часть и сбор статистики, а ZverTBot-ha предоставляет Home Assistant доступ к этим данным.
@@ -379,7 +379,32 @@ examples/dashboard.yaml
 
 > Dashboard является готовым примером интерфейса. Его можно адаптировать под собственный Home Assistant.
 
----
+### Встроенная VPS-панель
+
+Интеграция включает готовую Lovelace-панель для отображения состояния VPS.
+
+![Default ZverTBot](docs/images/defaultpanel.png)
+
+Чтобы добавить панель в Home Assistant:
+
+1. Создайте **новый Dashboard** или откройте существующий.
+2. Добавьте новую страницу типа **Panel**.
+3. Откройте редактор конфигурации в YAML-режиме.
+4. Вставьте следующую конфигурацию:
+
+```yaml
+type: panel
+title: VPS
+icon: mdi:server-network
+cards:
+  - type: custom:zvertbot-vps-panel-v3
+```
+
+5. Сохраните конфигурацию.
+
+JavaScript панели **автоматически регистрируется интеграцией** при запуске Home Assistant. Поэтому отдельно добавлять `/api/zvertbotvps/static/zvertbot-panel.js` в **Settings → Dashboards → Resources** не требуется.
+
+После установки или обновления интеграции перезапустите Home Assistant и откройте созданную страницу Dashboard.
 
 # Безопасность
 
@@ -553,7 +578,7 @@ git diff --check
 # Версия
 
 ```text
-1.1.0
+1.2.0
 ```
 
 История изменений находится в [`CHANGELOG.md`](CHANGELOG.md).

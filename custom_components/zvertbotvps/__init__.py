@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry, OptionsFlowWithReload
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
-from pathlib import Path
 
 import voluptuous as vol
 
@@ -30,6 +32,22 @@ from .ssh import SSHStatusClient, SSHStatusError, read_vps_status
 PLATFORMS = ["sensor", "binary_sensor"]
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up ZverTBot VPS frontend resources."""
+    static_path = Path(__file__).parent / "static"
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                "/api/zvertbotvps/static",
+                str(static_path),
+                False,
+            )
+        ]
+    )
+    add_extra_js_url(hass, "/api/zvertbotvps/static/zvertbot-panel.js")
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
