@@ -3,14 +3,14 @@
     "step": {
       "user": {
         "title": "ZverTBot VPS connection",
-        "description": "Choose how to connect to the VPS.\n\nHome Assistant → VPS tunnel over SSH — use this option if an SSH tunnel to the VPS is already configured on Home Assistant. The integration uses the existing tunnel and does not require a separate key for a direct connection.\n\nDirect SSH connection — use this option if no SSH tunnel is configured or you want Home Assistant to connect directly to the VPS. You can use an existing SSH key or create a new key specifically for this integration. The key must be accessible to Home Assistant.",
+        "description": "Choose how to connect to the VPS.\n\nUse existing tunnel — choose this option if an SSH tunnel to the VPS is already configured on Home Assistant. The integration uses the existing tunnel and does not create its own SSH connection.\n\nCreate SSH connection — choose this option if the integration should connect to the VPS directly over SSH. You can use an existing SSH key or create a new key specifically for this integration.",
         "data": {
           "mode": "Connection method"
         }
       },
       "tunnel": {
-        "title": "Existing SSH tunnel",
-        "description": "The integration uses the existing Home Assistant tunnel on 127.0.0.1:8080. No new Internet-facing ports are opened.",
+        "title": "Use existing tunnel",
+        "description": "The integration uses the SSH tunnel already configured on Home Assistant to the VPS. No separate SSH connection is created.",
         "data": {
           "status_url": "VPS status URL",
           "poll_interval": "Update interval, sec",
@@ -18,8 +18,8 @@
         }
       },
       "ssh": {
-        "title": "Direct SSH connection",
-        "description": "The connection uses the existing VPS SSH port. Specify the SSH key available to Home Assistant. No new Internet-facing ports are opened.",
+        "title": "Create SSH connection",
+        "description": "The integration establishes the SSH connection to the VPS itself. Specify the VPS IP address, SSH port, and username. On the next step, you can choose an existing SSH key or create a new one.",
         "data": {
           "host": "VPS address",
           "port": "SSH port",
@@ -29,7 +29,7 @@
       },
       "ssh_key": {
         "title": "SSH key usage",
-        "description": "Choose how the SSH key should be used for a direct VPS connection.",
+        "description": "Choose how the SSH key should be used for the SSH connection created by the integration.",
         "data": {
           "source": "SSH key source"
         }
@@ -78,8 +78,8 @@
         }
       },
       "tunnel": {
-        "title": "Existing SSH tunnel settings",
-        "description": "The existing Home Assistant SSH tunnel is used. The integration does not open new SSH connections to the VPS.",
+        "title": "Existing tunnel settings",
+        "description": "The existing Home Assistant SSH tunnel is used. The integration does not create a separate SSH connection to the VPS.",
         "data": {
           "status_url": "VPS status URL",
           "poll_interval": "Update interval, sec",
@@ -87,8 +87,8 @@
         }
       },
       "ssh": {
-        "title": "Direct SSH settings",
-        "description": "The connection uses the configured VPS SSH parameters.",
+        "title": "SSH connection settings",
+        "description": "Settings for the SSH connection that the integration establishes and uses to access the VPS.",
         "data": {
           "host": "VPS address",
           "port": "SSH port",
@@ -113,8 +113,8 @@
   "selector": {
     "connection_mode": {
       "options": {
-        "tunnel": "Home Assistant → VPS tunnel over SSH",
-        "ssh": "Direct SSH connection"
+        "tunnel": "Use existing tunnel",
+        "ssh": "Create SSH connection"
       }
     },
     "ssh_key_source": {
