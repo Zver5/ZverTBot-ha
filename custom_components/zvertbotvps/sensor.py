@@ -273,7 +273,13 @@ class VPSBackupSizeSensor(VPSBaseEntity):
 
     @property
     def native_value(self):
-        return self.coordinator.data.get("backup", {}).get("size_mb")
+        value = self.coordinator.data.get("backup", {}).get("size_mb")
+        if value in (None, ""):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
 
 class VPSBackupNextSensor(VPSBaseEntity):

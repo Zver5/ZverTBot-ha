@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.4
+
+- Fixed SSH connection setup in the Options Flow.
+- Added existing SSH key selection for direct SSH connections.
+- Added optional Ed25519 SSH key generation flow.
+- Direct SSH setup now validates the selected key only after the key source is chosen.
+
+
 Все заметные изменения проекта документируются в этом файле.
 
 ## [1.2.3] - 2026-09-18
