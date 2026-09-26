@@ -330,6 +330,26 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
             },
         )
 
+    async def _test_ssh(self, user_input):
+        host = str(user_input["host"]).strip()
+        key_path = Path(str(user_input["key_path"])).expanduser()
+
+        if not host or not key_path.is_file():
+            raise SSHStatusError("SSH key does not exist")
+
+        try:
+            return await asyncio.to_thread(
+                read_vps_status,
+                host,
+                str(user_input["username"]).strip(),
+                str(key_path),
+                int(user_input["port"]),
+            )
+        except SSHStatusResponseError:
+            raise
+        except SSHStatusError:
+            raise
+
     async def _finish_ssh_setup(self):
         try:
             data = await self._test_ssh(self._ssh_data)

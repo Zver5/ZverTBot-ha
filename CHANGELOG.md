@@ -1,5 +1,12 @@
 # Changelog
 
+
+## 1.2.5
+
+- Fixed direct SSH connection setup in the Options Flow.
+- Restored SSH connection validation for existing and newly generated keys.
+- Direct SSH setup now correctly validates the selected SSH key and VPS status endpoint.
+
 ## 1.2.4
 
 - Fixed SSH connection setup in the Options Flow.
