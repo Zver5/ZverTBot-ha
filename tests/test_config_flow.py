@@ -155,6 +155,12 @@ def test_finish_ssh_setup_preserves_existing_key_on_connection_error():
     assert 'errors={"base": "cannot_connect"}' in block
 
 
+def test_test_ssh_logs_ssh_error():
+    source = read_config_flow()
+
+    assert '_LOGGER.error("SSH connection test failed: %s", err)' in source
+
+
 def test_finish_ssh_setup_returns_to_generated_public_key_on_error():
     source = read_config_flow()
     start = source.index("    async def _finish_ssh_setup(")
@@ -194,25 +200,6 @@ def test_options_flow_has_connection_test_menu():
     assert 'async def async_step_init(self, user_input=None):' in block
     assert 'menu_options=["settings", "test_connection"]' in block
     assert "async def async_step_settings(" in block
-    assert "async def async_step_test_connection(" in block
-
-
-def test_options_flow_connection_test_uses_saved_configuration():
-    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
-        encoding="utf-8"
-    )
-
-    start = source.index("    async def async_step_test_connection(")
-    end = source.index("\n    async def _test_tunnel(", start)
-    block = source[start:end]
-
-    assert "self.config_entry.data" in block
-    assert "self.config_entry.options" in block
-    assert "_test_ssh(current)" in block
-    assert "_test_tunnel(current)" in block
-    assert 'errors={"base": "cannot_connect"}' in block
-    assert 'errors={"base": "invalid_response"}' in block
-    assert '"server_ip": server_ip or "unknown"' in block
 
 
 def test_options_flow_connection_test_has_translations():

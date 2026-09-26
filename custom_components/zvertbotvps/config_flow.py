@@ -365,4 +365,5 @@ class ZverTBotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except SSHStatusResponseError as err:
             raise InvalidResponse from err
         except SSHStatusError as err:
+            _LOGGER.error("SSH connection test failed: %s", err)
             raise CannotConnect from err

@@ -122,6 +122,15 @@ class SSHStatusClient:
 
         if result.returncode != 0:
             error = (result.stderr or result.stdout).strip()
+            _LOGGER.error(
+                "VPS SSH status request failed for %s@%s:%s "
+                "(exit code %s): %s",
+                self.username,
+                self.host,
+                self.port,
+                result.returncode,
+                error or "unknown SSH error",
+            )
             raise SSHStatusError(
                 error or f"ssh exited with code {result.returncode}"
             )
@@ -129,11 +138,13 @@ class SSHStatusClient:
         try:
             data = json.loads(result.stdout)
         except json.JSONDecodeError as err:
+            _LOGGER.error("VPS returned invalid JSON: %s", err)
             raise SSHStatusResponseError(
                 f"VPS returned invalid JSON: {err}"
             ) from err
 
         if not isinstance(data, dict) or not isinstance(data.get("server"), dict):
+            _LOGGER.error("VPS returned an invalid status response")
             raise SSHStatusResponseError("VPS returned an invalid status response")
 
         return normalize_status(data)

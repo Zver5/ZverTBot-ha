@@ -111,6 +111,37 @@ def test_read_parses_valid_response(tmp_path, monkeypatch):
     assert client.read() == payload
 
 
+def test_read_logs_ssh_command_error(tmp_path, monkeypatch, caplog):
+    module = load_module()
+
+    key = tmp_path / "key"
+    key.write_text("test")
+
+    class Result:
+        returncode = 255
+        stdout = ""
+        stderr = "Host key verification failed."
+
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: Result())
+
+    client = module.SSHStatusClient(
+        "example",
+        "root",
+        str(key),
+    )
+
+    with caplog.at_level("ERROR"):
+        try:
+            client.read()
+        except module.SSHStatusError as err:
+            assert "Host key verification failed." in str(err)
+        else:
+            raise AssertionError("Expected SSHStatusError")
+
+    assert "VPS SSH status request failed for root@example:22" in caplog.text
+    assert "Host key verification failed." in caplog.text
+
+
 def test_read_rejects_invalid_json(tmp_path, monkeypatch):
     module = load_module()
 
