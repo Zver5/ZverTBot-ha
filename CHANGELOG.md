@@ -1,6 +1,5 @@
 # Changelog
 
-
 ## 1.2.5
 
 - Fixed direct SSH connection setup in the Options Flow.
