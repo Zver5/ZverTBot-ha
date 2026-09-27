@@ -56,6 +56,8 @@ def test_redact_masks_sensitive_values_recursively():
             "ip": "192.0.2.10",
             "endpoint": "https://secret.example",
             "public_key": "ssh-ed25519 AAAA-secret",
+            "key_path": "/config/ssh/vps_key",
+            "status_url": "http://10.0.0.1:8080/status",
         },
         "clients": [
             {"last_ip": "198.51.100.10"},
@@ -70,6 +72,8 @@ def test_redact_masks_sensitive_values_recursively():
     assert result["nested"]["ip"] == "**REDACTED**"
     assert result["nested"]["endpoint"] == "**REDACTED**"
     assert result["nested"]["public_key"] == "**REDACTED**"
+    assert result["nested"]["key_path"] == "**REDACTED**"
+    assert result["nested"]["status_url"] == "**REDACTED**"
     assert result["clients"][0]["last_ip"] == "**REDACTED**"
     assert result["clients"][1]["uuid"] == "**REDACTED**"
     assert result["safe"] == "visible"

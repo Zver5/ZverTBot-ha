@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.7
+- test: cover additional diagnostics redaction fields
+
 ## 1.2.6
 
 - Улучшено логирование ошибок прямого SSH-подключения к VPS.
