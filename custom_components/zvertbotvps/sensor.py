@@ -32,7 +32,7 @@ _UNIT_MULTIPLIERS = {
 def _device_info(coordinator: ZverTBotCoordinator) -> dict[str, Any]:
     return {
         "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-        "name": "ZverTBot",
+        "name": coordinator.entry.title or "ZverTBot VPS",
         "manufacturer": "ZverTBot",
         "model": "VPS",
     }
