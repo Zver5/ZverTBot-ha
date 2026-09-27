@@ -36,8 +36,8 @@ class ZverTBotVpsPanelV3 extends HTMLElement {
         entityId,
         attrs,
         allStats: state,
-        awg: this._findClientSensor(states, "awg"),
-        xray: this._findClientSensor(states, "xray"),
+        awg: this._findClientSensor(states, entityId, "awg"),
+        xray: this._findClientSensor(states, entityId, "xray"),
       };
     });
 
@@ -45,29 +45,19 @@ class ZverTBotVpsPanelV3 extends HTMLElement {
     this._render();
   }
 
-  _findClientSensor(states, type) {
-    const entries = Object.entries(states);
+  _findClientSensor(states, allStatsEntityId, type) {
+    const prefix = allStatsEntityId
+      .replace(/^sensor\./, "")
+      .replace(/_all_stats$/, "");
 
-    return entries.find(([entityId, state]) => {
-      const id = entityId.toLowerCase();
-      const name = String(
-        state.attributes?.friendly_name || ""
-      ).toLowerCase();
+    const suffix =
+      type === "awg"
+        ? "_awg_clients"
+        : "_xray_clients";
 
-      if (!id.startsWith("sensor.")) return false;
+    const entityId = `sensor.${prefix}${suffix}`;
 
-      if (type === "awg") {
-        return (
-          id.includes("zvertbot_vps_awg_clients") ||
-          name.includes("vps awg clients")
-        );
-      }
-
-      return (
-        id.includes("zvertbot_vps_xray_clients") ||
-        name.includes("vps xray clients")
-      );
-    })?.[1] || null;
+    return states[entityId] || null;
   }
 
   _render() {

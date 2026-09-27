@@ -330,6 +330,75 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
             },
         )
 
+    async def async_step_test_connection(self, user_input=None):
+        if user_input is not None:
+            return await self.async_step_init()
+
+        current = {**self.config_entry.data, **self.config_entry.options}
+
+        try:
+            if current.get("mode", MODE_TUNNEL) == MODE_SSH:
+                data = await self._test_connection_ssh(current)
+            else:
+                data = await self._test_tunnel(current)
+        except CannotConnect:
+            return self.async_show_form(
+                step_id="test_connection",
+                data_schema=vol.Schema({}),
+                errors={"base": "cannot_connect"},
+            )
+        except InvalidResponse:
+            return self.async_show_form(
+                step_id="test_connection",
+                data_schema=vol.Schema({}),
+                errors={"base": "invalid_response"},
+            )
+        except Exception:
+            _LOGGER.exception("Unexpected connection test error")
+            return self.async_show_form(
+                step_id="test_connection",
+                data_schema=vol.Schema({}),
+                errors={"base": "cannot_connect"},
+            )
+
+        server_ip = str(data.get("server", {}).get("ip", "")).strip()
+
+        return self.async_show_form(
+            step_id="test_connection",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "server_ip": server_ip or "unknown",
+            },
+        )
+
+    async def _test_tunnel(self, user_input: dict) -> dict:
+        session = async_get_clientsession(self.hass)
+
+        try:
+            async with session.get(
+                str(user_input["status_url"]),
+                timeout=int(user_input["http_timeout"]),
+            ) as response:
+                response.raise_for_status()
+                data = await response.json(content_type=None)
+        except Exception as err:
+            raise CannotConnect from err
+
+        if not isinstance(data, dict) or not isinstance(
+            data.get("server"), dict
+        ):
+            raise InvalidResponse
+
+        return normalize_status(data)
+
+    async def _test_connection_ssh(self, user_input: dict) -> dict:
+        try:
+            return await self._test_ssh(user_input)
+        except SSHStatusResponseError as err:
+            raise InvalidResponse from err
+        except SSHStatusError as err:
+            raise CannotConnect from err
+
     async def _test_ssh(self, user_input):
         host = str(user_input["host"]).strip()
         key_path = Path(str(user_input["key_path"])).expanduser()

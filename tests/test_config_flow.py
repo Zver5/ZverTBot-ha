@@ -189,6 +189,49 @@ def test_public_key_step_accepts_errors():
     assert "errors=errors or {}" in block
 
 
+def test_options_flow_has_connection_test_step():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+
+    start = source.index("class ZverTBotOptionsFlow(")
+    block = source[start:]
+
+    assert "async def async_step_test_connection(" in block
+    assert "await self._test_connection_ssh(current)" in block
+    assert "await self._test_tunnel(current)" in block
+
+
+def test_options_flow_connection_test_handles_connection_errors():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+
+    start = source.index("    async def async_step_test_connection(")
+    end = source.index("\n    async def _test_tunnel(", start)
+    block = source[start:end]
+
+    assert 'except CannotConnect:' in block
+    assert 'errors={"base": "cannot_connect"}' in block
+    assert 'except InvalidResponse:' in block
+    assert 'errors={"base": "invalid_response"}' in block
+
+
+def test_options_flow_connection_test_adapts_ssh_errors():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+
+    start = source.index("    async def _test_connection_ssh(")
+    end = source.index("\n    async def _test_ssh(", start)
+    block = source[start:end]
+
+    assert "except SSHStatusResponseError as err:" in block
+    assert "raise InvalidResponse from err" in block
+    assert "except SSHStatusError as err:" in block
+    assert "raise CannotConnect from err" in block
+
+
 def test_options_flow_has_connection_test_menu():
     source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
         encoding="utf-8"
