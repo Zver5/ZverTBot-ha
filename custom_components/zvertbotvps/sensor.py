@@ -105,7 +105,6 @@ async def async_setup_entry(
         VPSBackupNextSensor(coordinator),
         VPSStatsUpdatedSensor(coordinator),
         VPSFreshnessSensor(coordinator),
-        VPSDataAgeSensor(coordinator),
         VPSConnectionStateSensor(coordinator),
         VPSConnectionFailuresSensor(coordinator),
         VPSSSHKeySensor(coordinator),
@@ -346,41 +345,6 @@ class VPSFreshnessSensor(VPSBaseEntity):
         return {
             "last_refresh": self.coordinator.last_refresh,
             "server_updated_at": self.coordinator.data.get("updated_at"),
-        }
-
-
-class VPSDataAgeSensor(VPSBaseEntity):
-    """Age of the data since the last successful HA refresh."""
-
-    _attr_name = "HA Data Age"
-    _attr_native_unit_of_measurement = "min"
-
-    def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_ha_data_age"
-
-    @property
-    def native_value(self):
-        value = self.coordinator.last_refresh
-        if not value:
-            return None
-
-        timestamp = dt_util.parse_datetime(value)
-        if timestamp is None:
-            return None
-
-        return round(
-            max(
-                0,
-                (dt_util.utcnow() - timestamp).total_seconds() / 60,
-            ),
-            1,
-        )
-
-    @property
-    def extra_state_attributes(self):
-        return {
-            "last_refresh": self.coordinator.last_refresh,
         }
 
 
