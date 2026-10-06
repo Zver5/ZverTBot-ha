@@ -78,6 +78,12 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 data = await response.json(content_type=None)
         except (ClientError, TimeoutError, ValueError) as err:
             self._mark_connection_failure(str(err))
+            _LOGGER.warning(
+                "VPS tunnel status request failed entry=%s url=%s: %s",
+                getattr(self.entry, "entry_id", "unknown"),
+                self.status_url,
+                err,
+            )
             raise UpdateFailed(f"Unable to read VPS status: {err}") from err
         try:
             result = self._validate(data)
@@ -176,6 +182,28 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not isinstance(data, dict) or not isinstance(data.get("server"), dict):
             raise UpdateFailed("VPS status response is invalid")
         return normalize_status(data)
+
+    async def async_request_reconnect(self) -> None:
+        """Reset connection backoff and force an immediate status refresh."""
+        _LOGGER.info(
+            "Manual VPS reconnect requested for entry=%s mode=%s",
+            getattr(self.entry, "entry_id", "unknown"),
+            self.mode,
+        )
+        self._ssh_blocked_until = 0.0
+        self._ssh_retry_at = None
+        if self._ssh_client is not None:
+            await asyncio.to_thread(self._ssh_client.close)
+        await self.async_request_refresh()
+
+    async def async_request_refresh_now(self) -> None:
+        """Force an immediate VPS status refresh."""
+        _LOGGER.info(
+            "Manual VPS refresh requested for entry=%s mode=%s",
+            getattr(self.entry, "entry_id", "unknown"),
+            self.mode,
+        )
+        await self.async_request_refresh()
 
     async def async_shutdown(self) -> None:
         if self._ssh_client is not None:

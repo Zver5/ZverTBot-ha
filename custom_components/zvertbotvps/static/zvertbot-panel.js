@@ -38,11 +38,22 @@ class ZverTBotVpsPanelV3 extends HTMLElement {
         allStats: state,
         awg: this._findClientSensor(states, entityId, "awg"),
         xray: this._findClientSensor(states, entityId, "xray"),
+        connection: this._findEntity(states, entityId, "binary_sensor", "connection"),
+        connectionState: this._findEntity(states, entityId, "sensor", "connection_state"),
+        refreshButton: this._findEntity(states, entityId, "button", "refresh"),
+        reconnectButton: this._findEntity(states, entityId, "button", "reconnect"),
       };
     });
 
     this._servers = servers;
     this._render();
+  }
+
+  _findEntity(states, allStatsEntityId, domain, suffix) {
+    const prefix = allStatsEntityId
+      .replace(/^sensor\./, "")
+      .replace(/_all_stats$/, "");
+    return states[`${domain}.${prefix}_${suffix}`] || null;
   }
 
   _findClientSensor(states, allStatsEntityId, type) {
@@ -77,6 +88,18 @@ class ZverTBotVpsPanelV3 extends HTMLElement {
         ).join("")}
       </div>
     `;
+
+    this.shadowRoot.querySelectorAll("button[data-action]").forEach(button => {
+      button.addEventListener("click", async () => {
+        const entityId = button.dataset.entity;
+        if (!entityId || !this._hass) return;
+        try {
+          await this._hass.callService("button", "press", { entity_id: entityId });
+        } catch (err) {
+          console.error("ZverTBot VPS action failed", err);
+        }
+      });
+    });
   }
 
   _renderVps(server, index) {
@@ -98,6 +121,8 @@ class ZverTBotVpsPanelV3 extends HTMLElement {
     const memory = system.memory_percent ?? "—";
     const diskPercent = disk.percent ?? "—";
     const traffic = system.vpn_total_gb ?? "—";
+    const connectionState = server.connectionState?.state ||
+      server.connection?.state || "unknown";
 
     const awgClients =
       server.awg?.attributes?.clients || [];
@@ -112,7 +137,12 @@ class ZverTBotVpsPanelV3 extends HTMLElement {
             <div class="vps-title">VPS ${index + 1}</div>
             <div class="vps-subtitle">
               ${this._esc(ip)} · ${this._esc(this._mode(mode))}
+              · ${this._esc(this._connectionLabel(connectionState))}
             </div>
+          </div>
+          <div class="actions">
+            <button data-action="refresh" data-entity="${this._esc(server.refreshButton?.entity_id || "")}">Обновить</button>
+            <button data-action="reconnect" data-entity="${this._esc(server.reconnectButton?.entity_id || "")}">Переподключить</button>
           </div>
         </div>
 
@@ -408,6 +438,13 @@ class ZverTBotVpsPanelV3 extends HTMLElement {
     });
   }
 
+  _connectionLabel(state) {
+    if (state === "connected" || state === "on") return "подключено";
+    if (state === "paused") return "пауза после ошибки";
+    if (state === "failed" || state === "off") return "ошибка соединения";
+    return "состояние неизвестно";
+  }
+
   _mode(mode) {
     if (mode === "tunnel") return "HA Tunnel";
     if (mode === "ssh") return "SSH";
@@ -460,6 +497,29 @@ class ZverTBotVpsPanelV3 extends HTMLElement {
 
         .vps-header {
           margin-bottom: 20px;
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: flex-start;
+        }
+
+        .actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .actions button {
+          border: 1px solid rgba(255,255,255,.12);
+          background: rgba(255,255,255,.06);
+          color: inherit;
+          border-radius: 9px;
+          padding: 8px 12px;
+          cursor: pointer;
+        }
+
+        .actions button:hover {
+          background: rgba(255,255,255,.11);
         }
 
         .vps-title {

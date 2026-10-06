@@ -58,7 +58,8 @@
       "cannot_connect": "Не удалось подключиться к VPS или прочитать статус.",
       "invalid_response": "VPS вернул некорректный статус ZverTBot.",
       "invalid_key_name": "Недопустимое имя SSH-ключа.",
-      "key_generation_failed": "Не удалось создать SSH-ключ."
+      "key_generation_failed": "Не удалось создать SSH-ключ.",
+      "unknown_error": "Произошла внутренняя ошибка. Подробности записаны в журнал Home Assistant."
     },
     "abort": {
       "already_configured": "Этот VPS уже настроен."
@@ -88,7 +89,7 @@
       },
       "ssh": {
         "title": "Настройки SSH-подключения",
-        "description": "Настройки SSH-подключения, которое интеграция самостоятельно использует для доступа к VPS.",
+        "description": "SSH-подключение, которое интеграция использует для доступа к VPS.\n\nКлюч: {key_path}\nСтатус: {key_status}\nFingerprint: {key_fingerprint}\nИзменён: {key_modified}.",
         "data": {
           "host": "Адрес VPS",
           "port": "SSH-порт",
@@ -108,6 +109,9 @@
         "title": "Проверка соединения",
         "description": "Соединение с VPS успешно установлено.\n\nАдрес VPS: {server_ip}\n\nПроверка выполняется один раз и не изменяет состояние автоматического мониторинга."
       }
+    },
+    "error": {
+      "unknown_error": "Произошла внутренняя ошибка. Подробности записаны в журнал Home Assistant."
     }
   },
   "selector": {

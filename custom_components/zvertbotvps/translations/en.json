@@ -58,7 +58,8 @@
       "cannot_connect": "Unable to connect to the VPS or read its status.",
       "invalid_response": "The VPS returned an invalid ZverTBot status response.",
       "invalid_key_name": "Invalid SSH key name.",
-      "key_generation_failed": "Unable to create SSH key."
+      "key_generation_failed": "Unable to create SSH key.",
+      "unknown_error": "An internal error occurred. Details were written to the Home Assistant log."
     },
     "abort": {
       "already_configured": "This VPS is already configured."
@@ -88,7 +89,7 @@
       },
       "ssh": {
         "title": "SSH connection settings",
-        "description": "Settings for the SSH connection that the integration establishes and uses to access the VPS.",
+        "description": "SSH connection used by the integration to access the VPS.\n\nKey: {key_path}\nStatus: {key_status}\nFingerprint: {key_fingerprint}\nModified: {key_modified}.",
         "data": {
           "host": "VPS address",
           "port": "SSH port",
@@ -108,6 +109,9 @@
         "title": "Connection test",
         "description": "The connection to the VPS was successful.\n\nVPS address: {server_ip}\n\nThis is a one-time test and does not change the automatic monitoring state."
       }
+    },
+    "error": {
+      "unknown_error": "An internal error occurred. Details were written to the Home Assistant log."
     }
   },
   "selector": {

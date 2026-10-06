@@ -387,3 +387,40 @@ def test_ssh_invalid_payload_marks_connection_failed():
     assert coordinator.last_error is not None
     assert "invalid" in coordinator.last_error
     assert coordinator.consecutive_failures == 1
+
+
+def test_manual_reconnect_clears_backoff_and_requests_refresh(monkeypatch):
+    module = load_module()
+    coordinator = make_coordinator(module, "ssh")
+    calls = []
+
+    class Client:
+        def close(self):
+            calls.append("close")
+
+    async def refresh():
+        calls.append("refresh")
+
+    coordinator._ssh_client = Client()
+    coordinator._ssh_blocked_until = 123
+    coordinator._ssh_retry_at = datetime.now(timezone.utc)
+    coordinator.async_request_refresh = refresh
+
+    asyncio.run(coordinator.async_request_reconnect())
+
+    assert coordinator._ssh_blocked_until == 0.0
+    assert coordinator._ssh_retry_at is None
+    assert calls == ["close", "refresh"]
+
+
+def test_manual_refresh_requests_refresh(monkeypatch):
+    module = load_module()
+    coordinator = make_coordinator(module)
+    calls = []
+
+    async def refresh():
+        calls.append("refresh")
+
+    coordinator.async_request_refresh = refresh
+    asyncio.run(coordinator.async_request_refresh_now())
+    assert calls == ["refresh"]

@@ -39,7 +39,7 @@ from .ssh import (
     read_vps_status,
 )
 
-PLATFORMS = ["sensor", "binary_sensor"]
+PLATFORMS = ["sensor", "binary_sensor", "button"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -190,7 +190,7 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
             if errors:
                 return self.async_show_form(
                     step_id="ssh",
-                    data_schema=self._ssh_schema(values),
+                    data_schema=self._ssh_options_schema(values),
                     errors=errors,
                 )
 
@@ -199,8 +199,9 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
 
         return self.async_show_form(
             step_id="ssh",
-            data_schema=self._ssh_schema(current),
+            data_schema=self._ssh_options_schema(current),
             errors=errors,
+            description_placeholders=self._ssh_description_placeholders(current),
         )
 
     async def async_step_ssh_key(self, user_input=None):
@@ -272,6 +273,11 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
                 key_path = Path("/config/ssh") / key_name
 
                 try:
+                    await asyncio.to_thread(
+                        key_path.parent.mkdir,
+                        parents=True,
+                        exist_ok=True,
+                    )
                     public_key = await asyncio.to_thread(
                         generate_ssh_key_pair,
                         key_path,
@@ -354,11 +360,15 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
                 errors={"base": "invalid_response"},
             )
         except Exception:
-            _LOGGER.exception("Unexpected connection test error")
+            _LOGGER.exception(
+                "Unexpected connection test error for entry=%s mode=%s",
+                self.config_entry.entry_id,
+                current.get("mode", MODE_TUNNEL),
+            )
             return self.async_show_form(
                 step_id="test_connection",
                 data_schema=vol.Schema({}),
-                errors={"base": "cannot_connect"},
+                errors={"base": "unknown_error"},
             )
 
         server_ip = str(data.get("server", {}).get("ip", "")).strip()
@@ -392,6 +402,14 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
         return normalize_status(data)
 
     async def _test_connection_ssh(self, user_input: dict) -> dict:
+        _LOGGER.info(
+            "Testing SSH connection for entry=%s host=%s port=%s username=%s key=%s",
+            self.config_entry.entry_id,
+            user_input.get("host"),
+            user_input.get("port"),
+            user_input.get("username"),
+            user_input.get("key_path"),
+        )
         try:
             return await self._test_ssh(user_input)
         except SSHStatusResponseError as err:
@@ -441,11 +459,15 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
                 errors={"base": "cannot_connect"},
             )
         except Exception:
-            _LOGGER.exception("Unexpected SSH setup error")
+            _LOGGER.exception(
+                "Unexpected SSH setup error for existing entry=%s host=%s",
+                self.config_entry.entry_id,
+                self._ssh_data.get("host"),
+            )
 
             if getattr(self, "_ssh_key_source", None) == "create":
                 return await self.async_step_ssh_key_public(
-                    errors={"base": "cannot_connect"}
+                    errors={"base": "unknown_error"}
                 )
 
             return self.async_show_form(
@@ -458,7 +480,7 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
                         ): str,
                     }
                 ),
-                errors={"base": "cannot_connect"},
+                errors={"base": "unknown_error"},
             )
 
         return self.async_create_entry(
@@ -472,6 +494,47 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
                 "poll_interval": int(self._ssh_data["poll_interval"]),
             },
         )
+
+    @staticmethod
+    def _ssh_description_placeholders(current: dict) -> dict[str, str]:
+        key_path = Path(str(current.get("key_path", DEFAULT_SSH_KEY_PATH))).expanduser()
+        exists = key_path.is_file()
+        public_path = Path(f"{key_path}.pub")
+        fingerprint = "не определён"
+        key_mtime = "не определён"
+        if key_path.is_file():
+            try:
+                from datetime import datetime
+
+                key_mtime = datetime.fromtimestamp(
+                    key_path.stat().st_mtime
+                ).astimezone().strftime("%d.%m.%Y %H:%M")
+            except OSError as err:
+                _LOGGER.warning(
+                    "Unable to read SSH key metadata for %s: %s",
+                    key_path,
+                    err,
+                )
+
+        if public_path.is_file():
+            try:
+                import base64
+                import hashlib
+
+                parts = public_path.read_text(encoding="utf-8").split()
+                if len(parts) >= 2:
+                    blob = base64.b64decode(parts[1], validate=True)
+                    fingerprint = "SHA256:" + base64.b64encode(
+                        hashlib.sha256(blob).digest()
+                    ).decode("ascii").rstrip("=")
+            except (OSError, ValueError, IndexError):
+                fingerprint = "не определён"
+        return {
+            "key_path": str(key_path),
+            "key_status": "найден" if exists else "не найден",
+            "key_fingerprint": fingerprint,
+            "key_modified": key_mtime,
+        }
 
     @staticmethod
     def _ssh_options_schema(current: dict) -> vol.Schema:

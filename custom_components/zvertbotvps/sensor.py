@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 import re
 from typing import Any
 
@@ -104,6 +105,9 @@ async def async_setup_entry(
         VPSBackupNextSensor(coordinator),
         VPSStatsUpdatedSensor(coordinator),
         VPSFreshnessSensor(coordinator),
+        VPSConnectionStateSensor(coordinator),
+        VPSConnectionFailuresSensor(coordinator),
+        VPSSSHKeySensor(coordinator),
     ]
 
     await _remove_legacy_client_entities(hass, entry)
@@ -331,3 +335,94 @@ class VPSFreshnessSensor(VPSBaseEntity):
     @property
     def extra_state_attributes(self):
         return {"updated_at": self.coordinator.data.get("updated_at")}
+
+
+class VPSConnectionStateSensor(VPSBaseEntity):
+    _attr_name = "VPS Connection State"
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_connection_state"
+
+    @property
+    def native_value(self):
+        return self.coordinator.connection_state
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "mode": self.coordinator.mode,
+            "last_success": self.coordinator.last_success,
+            "last_error": self.coordinator.last_error,
+            "consecutive_failures": self.coordinator.consecutive_failures,
+            "next_retry": self.coordinator.next_retry,
+        }
+
+
+class VPSConnectionFailuresSensor(VPSBaseEntity):
+    _attr_name = "VPS Connection Failures"
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_connection_failures"
+
+    @property
+    def native_value(self):
+        return self.coordinator.consecutive_failures
+
+
+class VPSSSHKeySensor(VPSBaseEntity):
+    _attr_name = "VPS SSH Key"
+
+    def __init__(self, coordinator):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_ssh_key"
+
+    @property
+    def native_value(self):
+        from pathlib import Path
+
+        path = Path(
+            str(self.coordinator.settings.get("key_path", ""))
+        ).expanduser()
+        return "найден" if path.is_file() else "не найден"
+
+    @property
+    def extra_state_attributes(self):
+        from pathlib import Path
+        import base64
+        import hashlib
+        from datetime import datetime
+
+        path = Path(
+            str(self.coordinator.settings.get("key_path", ""))
+        ).expanduser()
+        public_path = Path(f"{path}.pub")
+
+        fingerprint = None
+        if public_path.is_file():
+            try:
+                parts = public_path.read_text(encoding="utf-8").split()
+                if len(parts) >= 2:
+                    blob = base64.b64decode(parts[1], validate=True)
+                    fingerprint = "SHA256:" + base64.b64encode(
+                        hashlib.sha256(blob).digest()
+                    ).decode("ascii").rstrip("=")
+            except (OSError, ValueError, IndexError):
+                fingerprint = None
+
+        modified = None
+        if path.is_file():
+            try:
+                modified = datetime.fromtimestamp(
+                    path.stat().st_mtime
+                ).astimezone().strftime("%d.%m.%Y %H:%M")
+            except OSError:
+                modified = None
+
+        return {
+            "mode": self.coordinator.mode,
+            "path": str(path),
+            "fingerprint": fingerprint,
+            "permissions": oct(path.stat().st_mode & 0o777) if path.is_file() else None,
+        }

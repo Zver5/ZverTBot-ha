@@ -275,3 +275,36 @@ def test_options_flow_connection_test_imports_dependencies():
     assert "from homeassistant.helpers.aiohttp_client import async_get_clientsession" in source
     assert "from .config_flow import CannotConnect, InvalidResponse" in source
     assert "from .normalize import normalize_status" in source
+
+
+def test_options_ssh_uses_existing_options_schema_and_not_config_schema():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+    start = source.index("class ZverTBotOptionsFlow(")
+    block = source[start:]
+    assert "data_schema=self._ssh_options_schema(values)" in block
+    assert "data_schema=self._ssh_options_schema(current)" in block
+    assert "data_schema=self._ssh_schema(values)" not in block
+    assert "data_schema=self._ssh_schema(current)" not in block
+
+
+def test_options_ssh_does_not_abort_as_already_configured():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+    start = source.index("class ZverTBotOptionsFlow(")
+    block = source[start:]
+    finish = block.index("    async def _finish_ssh_setup")
+    finish_block = block[finish:]
+    assert "self._abort_if_unique_id_configured()" not in finish_block
+
+
+def test_options_ssh_has_safe_key_metadata_and_unknown_error():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+    assert "_ssh_description_placeholders" in source
+    assert '"key_fingerprint"' in source
+    assert '"key_modified"' in source
+    assert 'errors={"base": "unknown_error"}' in source
