@@ -50,6 +50,7 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_success: str | None = None
         self._last_error: str | None = None
         self._consecutive_failures = 0
+        self._last_refresh: datetime | None = None
         if self.mode == MODE_SSH:
             self._ssh_client = SSHStatusClient(
                 str(self.settings["host"]),
@@ -91,6 +92,7 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._mark_connection_failure(str(err))
             raise
         self._mark_connection_success()
+        self._mark_refresh()
         return result
 
     async def _async_update_ssh(self) -> dict[str, Any]:
@@ -137,7 +139,11 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._mark_connection_failure(str(err))
             raise
         self._mark_connection_success()
+        self._mark_refresh()
         return result
+
+    def _mark_refresh(self) -> None:
+        self._last_refresh = datetime.now(timezone.utc)
 
     def _mark_connection_success(self) -> None:
         self._connection_state = "connected"
@@ -164,6 +170,37 @@ class ZverTBotCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def last_error(self) -> str | None:
         return self._last_error
+
+    @property
+    def last_refresh(self) -> str | None:
+        if self._last_refresh is None:
+            return None
+        return self._last_refresh.replace(microsecond=0).isoformat()
+
+    @property
+    def connection_port(self) -> int | None:
+        if self.mode == MODE_SSH:
+            try:
+                return int(
+                    self.settings.get("port", DEFAULT_SSH_PORT)
+                )
+            except (TypeError, ValueError):
+                return DEFAULT_SSH_PORT
+
+        from urllib.parse import urlparse
+
+        try:
+            parsed = urlparse(str(self.status_url))
+            if parsed.port is not None:
+                return parsed.port
+            if parsed.scheme == "https":
+                return 443
+            if parsed.scheme == "http":
+                return 80
+        except ValueError:
+            pass
+
+        return None
 
     @property
     def consecutive_failures(self) -> int:

@@ -324,17 +324,28 @@ class VPSFreshnessSensor(VPSBaseEntity):
 
     @property
     def native_value(self):
-        value = self.coordinator.data.get("updated_at")
+        value = self.coordinator.last_refresh
         if not value:
             return None
+
         timestamp = dt_util.parse_datetime(value)
         if timestamp is None:
             return None
-        return round(max(0, (dt_util.utcnow() - timestamp).total_seconds() / 60), 1)
+
+        return round(
+            max(
+                0,
+                (dt_util.utcnow() - timestamp).total_seconds() / 60,
+            ),
+            1,
+        )
 
     @property
     def extra_state_attributes(self):
-        return {"updated_at": self.coordinator.data.get("updated_at")}
+        return {
+            "last_refresh": self.coordinator.last_refresh,
+            "server_updated_at": self.coordinator.data.get("updated_at"),
+        }
 
 
 class VPSConnectionStateSensor(VPSBaseEntity):
@@ -352,7 +363,9 @@ class VPSConnectionStateSensor(VPSBaseEntity):
     def extra_state_attributes(self):
         return {
             "mode": self.coordinator.mode,
+            "port": self.coordinator.connection_port,
             "last_success": self.coordinator.last_success,
+            "last_refresh": self.coordinator.last_refresh,
             "last_error": self.coordinator.last_error,
             "consecutive_failures": self.coordinator.consecutive_failures,
             "next_retry": self.coordinator.next_retry,
@@ -379,50 +392,137 @@ class VPSSSHKeySensor(VPSBaseEntity):
         self._attr_unique_id = f"{coordinator.entry.entry_id}_ssh_key"
 
     @property
-    def native_value(self):
-        from pathlib import Path
-
-        path = Path(
-            str(self.coordinator.settings.get("key_path", ""))
+    def _key_path(self) -> Path:
+        configured = self.coordinator.settings.get("key_path")
+        return Path(
+            str(configured or "/config/ssh/vps_key")
         ).expanduser()
+
+    @property
+    def native_value(self):
+        path = self._key_path
         return "найден" if path.is_file() else "не найден"
 
     @property
     def extra_state_attributes(self):
-        from pathlib import Path
         import base64
         import hashlib
         from datetime import datetime
 
-        path = Path(
-            str(self.coordinator.settings.get("key_path", ""))
-        ).expanduser()
+        coordinator = self.coordinator
+        path = self._key_path
         public_path = Path(f"{path}.pub")
 
         fingerprint = None
+
+        # Prefer the public key file when available.
         if public_path.is_file():
             try:
-                parts = public_path.read_text(encoding="utf-8").split()
+                parts = public_path.read_text(
+                    encoding="utf-8"
+                ).split()
+
                 if len(parts) >= 2:
-                    blob = base64.b64decode(parts[1], validate=True)
-                    fingerprint = "SHA256:" + base64.b64encode(
-                        hashlib.sha256(blob).digest()
-                    ).decode("ascii").rstrip("=")
+                    blob = base64.b64decode(
+                        parts[1],
+                        validate=True,
+                    )
+                    fingerprint = (
+                        "SHA256:"
+                        + base64.b64encode(
+                            hashlib.sha256(blob).digest()
+                        ).decode("ascii").rstrip("=")
+                    )
             except (OSError, ValueError, IndexError):
                 fingerprint = None
 
+        # If .pub is missing or invalid, ask ssh-keygen to derive
+        # the public key/fingerprint from the private key.
+        if fingerprint is None and path.is_file():
+            try:
+                import shutil
+                import subprocess
+
+                ssh_keygen = shutil.which("ssh-keygen")
+                if ssh_keygen:
+                    result = subprocess.run(
+                        [
+                            ssh_keygen,
+                            "-lf",
+                            str(path),
+                            "-E",
+                            "sha256",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        stdin=subprocess.DEVNULL,
+                        timeout=5,
+                        check=False,
+                    )
+
+                    if result.returncode == 0:
+                        parts = result.stdout.strip().split()
+                        if len(parts) >= 2:
+                            fingerprint = parts[1]
+            except (
+                OSError,
+                subprocess.SubprocessError,
+                ValueError,
+            ):
+                fingerprint = None
+
         modified = None
+        permissions = None
+
         if path.is_file():
             try:
+                stat = path.stat()
+                permissions = oct(stat.st_mode & 0o777)
                 modified = datetime.fromtimestamp(
-                    path.stat().st_mtime
+                    stat.st_mtime
                 ).astimezone().strftime("%d.%m.%Y %H:%M")
             except OSError:
-                modified = None
+                pass
 
-        return {
-            "mode": self.coordinator.mode,
+        attributes = {
+            "mode": coordinator.mode,
+            "transport": (
+                "ssh"
+                if coordinator.mode == "ssh"
+                else "tunnel"
+            ),
             "path": str(path),
+            "key_status": (
+                "найден" if path.is_file() else "не найден"
+            ),
             "fingerprint": fingerprint,
-            "permissions": oct(path.stat().st_mode & 0o777) if path.is_file() else None,
+            "modified": modified,
+            "permissions": permissions,
+            "port": coordinator.connection_port,
         }
+
+        if coordinator.mode == "ssh":
+            attributes.update(
+                {
+                    "host": str(
+                        coordinator.settings.get("host", "")
+                    ),
+                    "username": str(
+                        coordinator.settings.get(
+                            "username",
+                            "",
+                        )
+                    ),
+                }
+            )
+        else:
+            attributes.update(
+                {
+                    "status_url": str(
+                        coordinator.status_url
+                    ),
+                    "status_port": coordinator.connection_port,
+                }
+            )
+
+        return attributes
