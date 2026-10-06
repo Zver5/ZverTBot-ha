@@ -384,12 +384,100 @@ class VPSConnectionFailuresSensor(VPSBaseEntity):
         return self.coordinator.consecutive_failures
 
 
+def _read_ssh_key_info(path: Path) -> dict[str, str | None]:
+    """Read SSH key metadata in a worker thread."""
+    import base64
+    import hashlib
+    import shutil
+    import subprocess
+    from datetime import datetime
+
+    fingerprint = None
+    public_path = Path(f"{path}.pub")
+
+    if public_path.is_file():
+        try:
+            parts = public_path.read_text(encoding="utf-8").split()
+
+            if len(parts) >= 2:
+                blob = base64.b64decode(parts[1], validate=True)
+                fingerprint = (
+                    "SHA256:"
+                    + base64.b64encode(
+                        hashlib.sha256(blob).digest()
+                    ).decode("ascii").rstrip("=")
+                )
+        except (OSError, ValueError, IndexError):
+            fingerprint = None
+
+    if fingerprint is None and path.is_file():
+        try:
+            ssh_keygen = shutil.which("ssh-keygen")
+
+            if ssh_keygen:
+                result = subprocess.run(
+                    [
+                        ssh_keygen,
+                        "-lf",
+                        str(path),
+                        "-E",
+                        "sha256",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    stdin=subprocess.DEVNULL,
+                    timeout=5,
+                    check=False,
+                )
+
+                if result.returncode == 0:
+                    parts = result.stdout.strip().split()
+
+                    if len(parts) >= 2:
+                        fingerprint = parts[1]
+
+        except (
+            OSError,
+            subprocess.SubprocessError,
+            ValueError,
+        ):
+            fingerprint = None
+
+    modified = None
+    permissions = None
+
+    if path.is_file():
+        try:
+            file_stat = path.stat()
+            permissions = oct(file_stat.st_mode & 0o777)
+            modified = datetime.fromtimestamp(
+                file_stat.st_mtime
+            ).astimezone().strftime("%d.%m.%Y %H:%M")
+        except OSError:
+            pass
+
+    return {
+        "key_status": (
+            "найден" if path.is_file() else "не найден"
+        ),
+        "fingerprint": fingerprint,
+        "modified": modified,
+        "permissions": permissions,
+    }
+
+
 class VPSSSHKeySensor(VPSBaseEntity):
     _attr_name = "VPS SSH Key"
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_ssh_key"
+        self._key_info = {
+            "key_status": "не найден",
+            "fingerprint": None,
+            "modified": None,
+            "permissions": None,
+        }
 
     @property
     def _key_path(self) -> Path:
@@ -398,91 +486,24 @@ class VPSSSHKeySensor(VPSBaseEntity):
             str(configured or "/config/ssh/vps_key")
         ).expanduser()
 
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        await self._async_update_key_info()
+
+    async def _async_update_key_info(self):
+        self._key_info = await self.hass.async_add_executor_job(
+            _read_ssh_key_info,
+            self._key_path,
+        )
+
     @property
     def native_value(self):
-        path = self._key_path
-        return "найден" if path.is_file() else "не найден"
+        return self._key_info["key_status"]
 
     @property
     def extra_state_attributes(self):
-        import base64
-        import hashlib
-        from datetime import datetime
-
         coordinator = self.coordinator
         path = self._key_path
-        public_path = Path(f"{path}.pub")
-
-        fingerprint = None
-
-        # Prefer the public key file when available.
-        if public_path.is_file():
-            try:
-                parts = public_path.read_text(
-                    encoding="utf-8"
-                ).split()
-
-                if len(parts) >= 2:
-                    blob = base64.b64decode(
-                        parts[1],
-                        validate=True,
-                    )
-                    fingerprint = (
-                        "SHA256:"
-                        + base64.b64encode(
-                            hashlib.sha256(blob).digest()
-                        ).decode("ascii").rstrip("=")
-                    )
-            except (OSError, ValueError, IndexError):
-                fingerprint = None
-
-        # If .pub is missing or invalid, ask ssh-keygen to derive
-        # the public key/fingerprint from the private key.
-        if fingerprint is None and path.is_file():
-            try:
-                import shutil
-                import subprocess
-
-                ssh_keygen = shutil.which("ssh-keygen")
-                if ssh_keygen:
-                    result = subprocess.run(
-                        [
-                            ssh_keygen,
-                            "-lf",
-                            str(path),
-                            "-E",
-                            "sha256",
-                        ],
-                        capture_output=True,
-                        text=True,
-                        stdin=subprocess.DEVNULL,
-                        timeout=5,
-                        check=False,
-                    )
-
-                    if result.returncode == 0:
-                        parts = result.stdout.strip().split()
-                        if len(parts) >= 2:
-                            fingerprint = parts[1]
-            except (
-                OSError,
-                subprocess.SubprocessError,
-                ValueError,
-            ):
-                fingerprint = None
-
-        modified = None
-        permissions = None
-
-        if path.is_file():
-            try:
-                stat = path.stat()
-                permissions = oct(stat.st_mode & 0o777)
-                modified = datetime.fromtimestamp(
-                    stat.st_mtime
-                ).astimezone().strftime("%d.%m.%Y %H:%M")
-            except OSError:
-                pass
 
         attributes = {
             "mode": coordinator.mode,
@@ -492,12 +513,7 @@ class VPSSSHKeySensor(VPSBaseEntity):
                 else "tunnel"
             ),
             "path": str(path),
-            "key_status": (
-                "найден" if path.is_file() else "не найден"
-            ),
-            "fingerprint": fingerprint,
-            "modified": modified,
-            "permissions": permissions,
+            **self._key_info,
             "port": coordinator.connection_port,
         }
 

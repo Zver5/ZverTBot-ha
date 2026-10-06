@@ -187,3 +187,96 @@ def test_client_collections_are_exposed_by_aggregate_sensors():
     assert awg.extra_state_attributes["clients"][0]["name"] == "Valya"
     assert xray.native_value == 1
     assert xray.extra_state_attributes["clients"][0]["name"] == "Test"
+
+
+def test_ssh_key_sensor_attributes_use_cached_key_info():
+    module = load_sensor_module()
+
+    class Entry:
+        entry_id = "test-entry"
+
+    class Coordinator:
+        entry = Entry()
+        mode = "ssh"
+        settings = {
+            "key_path": "/config/ssh/vps_key",
+            "host": "192.0.2.10",
+            "username": "root",
+        }
+        connection_port = 22
+        status_url = "http://192.0.2.10:8085"
+
+    sensor = object.__new__(module.VPSSSHKeySensor)
+    sensor.coordinator = Coordinator()
+    sensor._key_info = {
+        "key_status": "найден",
+        "fingerprint": "SHA256:test",
+        "modified": "06.10.2026 15:00",
+        "permissions": "0o600",
+    }
+
+    attributes = sensor.extra_state_attributes
+
+    assert attributes["key_status"] == "найден"
+    assert attributes["fingerprint"] == "SHA256:test"
+    assert attributes["modified"] == "06.10.2026 15:00"
+    assert attributes["permissions"] == "0o600"
+    assert attributes["path"] == "/config/ssh/vps_key"
+    assert attributes["host"] == "192.0.2.10"
+    assert attributes["username"] == "root"
+
+
+def test_ssh_key_info_reads_key_metadata_outside_sensor_properties(tmp_path):
+    module = load_sensor_module()
+
+    key = tmp_path / "vps_key"
+    key.write_text("dummy-private-key", encoding="utf-8")
+    key.chmod(0o600)
+
+    info = module._read_ssh_key_info(key)
+
+    assert info["key_status"] == "найден"
+    assert info["fingerprint"] is None
+    assert info["permissions"] == "0o600"
+    assert info["modified"] is not None
+
+
+def test_ssh_key_sensor_attributes_do_not_access_filesystem():
+    from unittest.mock import PropertyMock, patch
+
+    module = load_sensor_module()
+
+    class Entry:
+        entry_id = "test-entry"
+
+    class Coordinator:
+        entry = Entry()
+        mode = "ssh"
+        settings = {
+            "key_path": "/config/ssh/vps_key",
+            "host": "192.0.2.10",
+            "username": "root",
+        }
+        connection_port = 22
+        status_url = "http://192.0.2.10:8085"
+
+    sensor = object.__new__(module.VPSSSHKeySensor)
+    sensor.coordinator = Coordinator()
+    sensor._key_info = {
+        "key_status": "найден",
+        "fingerprint": "SHA256:test",
+        "modified": "06.10.2026 15:00",
+        "permissions": "0o600",
+    }
+
+    with patch.object(
+        module.VPSSSHKeySensor,
+        "_key_path",
+        new_callable=PropertyMock,
+        return_value=Path("/this/path/must/not/be/accessed"),
+    ):
+        attributes = sensor.extra_state_attributes
+
+    assert attributes["key_status"] == "найден"
+    assert attributes["fingerprint"] == "SHA256:test"
+    assert attributes["path"] == "/this/path/must/not/be/accessed"
