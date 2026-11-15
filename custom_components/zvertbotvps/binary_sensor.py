@@ -36,7 +36,7 @@ class VPSConnectionBinarySensor(
         self._attr_unique_id = f"{coordinator.entry.entry_id}_connection"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": "ZverTBot VPS",
+            "name": getattr(coordinator.entry, "title", None) or "ZverTBot VPS",
             "manufacturer": "ZverTBot",
             "model": "VPS",
         }
@@ -48,6 +48,8 @@ class VPSConnectionBinarySensor(
     @property
     def extra_state_attributes(self) -> dict[str, object]:
         return {
+            "zvertbot_entry_id": self.coordinator.entry.entry_id,
+            "zvertbot_role": "connection",
             "state": self.coordinator.connection_state,
             "mode": self.coordinator.mode,
             "last_success": self.coordinator.last_success,

@@ -21,13 +21,21 @@ class VPSActionButton(CoordinatorEntity[ZverTBotCoordinator], ButtonEntity):
         super().__init__(coordinator)
         self._attr_device_info = {
             "identifiers": {(DOMAIN, coordinator.entry.entry_id)},
-            "name": "ZverTBot VPS",
+            "name": getattr(coordinator.entry, "title", None) or "ZverTBot VPS",
             "manufacturer": "ZverTBot",
             "model": "VPS",
         }
 
+    @property
+    def extra_state_attributes(self):
+        return {
+            "zvertbot_entry_id": self.coordinator.entry.entry_id,
+            "zvertbot_role": self._panel_role,
+        }
+
 
 class VPSRefreshButton(VPSActionButton):
+    _panel_role = "refresh"
     _attr_name = "Refresh VPS"
 
     def __init__(self, coordinator: ZverTBotCoordinator) -> None:
@@ -39,6 +47,7 @@ class VPSRefreshButton(VPSActionButton):
 
 
 class VPSReconnectButton(VPSActionButton):
+    _panel_role = "reconnect"
     _attr_name = "Reconnect VPS"
 
     def __init__(self, coordinator: ZverTBotCoordinator) -> None:

@@ -172,6 +172,9 @@ class VPSAllStatsSensor(VPSBaseEntity):
     def extra_state_attributes(self):
         data = self.coordinator.data
         return {
+            "zvertbot_entry_id": getattr(getattr(self.coordinator, "entry", None), "entry_id", None),
+            "zvertbot_role": "all_stats",
+            "server_name": getattr(getattr(self.coordinator, "entry", None), "title", None) or "ZverTBot VPS",
             "server_ip": self.coordinator.server_ip,
             "connection_mode": self.coordinator.mode,
             "server": data.get("server", {}),
@@ -215,7 +218,11 @@ class _CountSensor(VPSBaseEntity):
 
     @property
     def extra_state_attributes(self):
-        return {"clients": self.coordinator.clients(self.collection_key)}
+        return {
+            "zvertbot_entry_id": getattr(getattr(self.coordinator, "entry", None), "entry_id", None),
+            "zvertbot_role": f"{self.collection_key}_clients",
+            "clients": self.coordinator.clients(self.collection_key),
+        }
 
 
 class VPSAWGClientsSensor(_CountSensor):
@@ -362,6 +369,8 @@ class VPSConnectionStateSensor(VPSBaseEntity):
     @property
     def extra_state_attributes(self):
         return {
+            "zvertbot_entry_id": getattr(getattr(self.coordinator, "entry", None), "entry_id", None),
+            "zvertbot_role": "connection_state",
             "mode": self.coordinator.mode,
             "port": self.coordinator.connection_port,
             "last_success": self.coordinator.last_success,

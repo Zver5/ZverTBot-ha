@@ -60,6 +60,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         ]
     )
     add_extra_js_url(hass, "/api/zvertbotvps/static/zvertbot-panel.js")
+    add_extra_js_url(hass, "/api/zvertbotvps/static/zvertbot-panel-v4.js")
     return True
 
 

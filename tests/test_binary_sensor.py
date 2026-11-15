@@ -131,6 +131,8 @@ def test_connection_binary_sensor_exposes_diagnostics():
     )
 
     assert sensor.extra_state_attributes == {
+        "zvertbot_entry_id": "test-entry",
+        "zvertbot_role": "connection",
         "state": "paused",
         "mode": "ssh",
         "last_success": "2026-09-16T20:00:00+00:00",
