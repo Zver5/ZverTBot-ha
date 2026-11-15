@@ -352,7 +352,8 @@ class ZverTBotConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _test_ssh(self, user_input: dict) -> dict:
         host = str(user_input["host"]).strip()
         key_path = Path(str(user_input["key_path"])).expanduser()
-        if not host or not key_path.is_file():
+        key_exists = await self.hass.async_add_executor_job(key_path.is_file)
+        if not host or not key_exists:
             raise CannotConnect
         try:
             return await asyncio.to_thread(

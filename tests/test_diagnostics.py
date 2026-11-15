@@ -58,6 +58,7 @@ def test_redact_masks_sensitive_values_recursively():
             "public_key": "ssh-ed25519 AAAA-secret",
             "key_path": "/config/ssh/vps_key",
             "status_url": "http://10.0.0.1:8080/status",
+            "username": "root",
         },
         "clients": [
             {"last_ip": "198.51.100.10"},
@@ -74,6 +75,7 @@ def test_redact_masks_sensitive_values_recursively():
     assert result["nested"]["public_key"] == "**REDACTED**"
     assert result["nested"]["key_path"] == "**REDACTED**"
     assert result["nested"]["status_url"] == "**REDACTED**"
+    assert result["nested"]["username"] == "**REDACTED**"
     assert result["clients"][0]["last_ip"] == "**REDACTED**"
     assert result["clients"][1]["uuid"] == "**REDACTED**"
     assert result["safe"] == "visible"
@@ -95,9 +97,9 @@ def test_config_entry_diagnostics_include_connection_state():
 
     class Entry:
         entry_id = "test-entry"
-        title = "Test VPS"
-        data = {"mode": "ssh", "host": "192.0.2.10"}
-        options = {}
+        title = "ZverTBot VPS 192.0.2.10"
+        data = {"mode": "ssh", "host": "192.0.2.10", "username": "root"}
+        options = {"username": "admin"}
 
     class Hass:
         data = {
@@ -109,6 +111,10 @@ def test_config_entry_diagnostics_include_connection_state():
     result = __import__("asyncio").run(
         module.async_get_config_entry_diagnostics(Hass(), Entry())
     )
+
+    assert result["entry"]["title"] == "ZverTBot VPS"
+    assert result["entry"]["data"]["username"] == "**REDACTED**"
+    assert result["entry"]["options"]["username"] == "**REDACTED**"
 
     connection = result["coordinator"]["connection"]
 

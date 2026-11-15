@@ -161,6 +161,18 @@ def test_test_ssh_logs_ssh_error():
     assert '_LOGGER.error("SSH connection test failed: %s", err)' in source
 
 
+def test_config_flow_ssh_key_check_runs_in_executor():
+    source = read_config_flow()
+    start = source.index("    async def _test_ssh(")
+    end = source.find("\n    @", start + 10)
+    if end == -1:
+        end = len(source)
+    block = source[start:end]
+
+    assert "await self.hass.async_add_executor_job(key_path.is_file)" in block
+    assert "key_path.is_file()" not in block
+
+
 def test_finish_ssh_setup_returns_to_generated_public_key_on_error():
     source = read_config_flow()
     start = source.index("    async def _finish_ssh_setup(")
@@ -308,3 +320,33 @@ def test_options_ssh_has_safe_key_metadata_and_unknown_error():
     assert '"key_fingerprint"' in source
     assert '"key_modified"' in source
     assert 'errors={"base": "unknown_error"}' in source
+
+
+def test_options_ssh_file_operations_run_in_executor():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        "description_placeholders=await self.hass.async_add_executor_job("
+        in source
+    )
+    start = source.index("    async def _test_ssh(")
+    end = source.index("\n    async def _finish_ssh_setup(", start)
+    block = source[start:end]
+
+    assert "await self.hass.async_add_executor_job(key_path.is_file)" in block
+    assert "key_path.is_file()" not in block
+
+
+def test_options_ssh_connection_log_does_not_expose_credentials():
+    source = (ROOT / "custom_components" / "zvertbotvps" / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+    start = source.index("    async def _test_connection_ssh(")
+    end = source.index("\n    async def _test_ssh(", start)
+    block = source[start:end]
+
+    assert "username" not in block
+    assert "key_path" not in block
+    assert "host" not in block

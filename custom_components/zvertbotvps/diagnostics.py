@@ -21,6 +21,7 @@ _REDACT_KEYS = {
     "public_key",
     "key_path",
     "status_url",
+    "username",
 }
 
 
@@ -52,7 +53,7 @@ async def async_get_config_entry_diagnostics(
     result: dict[str, Any] = {
         "entry": {
             "entry_id": entry.entry_id,
-            "title": entry.title,
+            "title": "ZverTBot VPS",
             "data": _redact(dict(entry.data)),
             "options": _redact(dict(entry.options)),
         }

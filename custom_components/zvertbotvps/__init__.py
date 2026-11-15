@@ -201,7 +201,9 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
             step_id="ssh",
             data_schema=self._ssh_options_schema(current),
             errors=errors,
-            description_placeholders=self._ssh_description_placeholders(current),
+            description_placeholders=await self.hass.async_add_executor_job(
+                self._ssh_description_placeholders, current
+            ),
         )
 
     async def async_step_ssh_key(self, user_input=None):
@@ -403,12 +405,9 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
 
     async def _test_connection_ssh(self, user_input: dict) -> dict:
         _LOGGER.info(
-            "Testing SSH connection for entry=%s host=%s port=%s username=%s key=%s",
+            "Testing SSH connection for entry=%s port=%s",
             self.config_entry.entry_id,
-            user_input.get("host"),
             user_input.get("port"),
-            user_input.get("username"),
-            user_input.get("key_path"),
         )
         try:
             return await self._test_ssh(user_input)
@@ -421,7 +420,8 @@ class ZverTBotOptionsFlow(OptionsFlowWithReload):
         host = str(user_input["host"]).strip()
         key_path = Path(str(user_input["key_path"])).expanduser()
 
-        if not host or not key_path.is_file():
+        key_exists = await self.hass.async_add_executor_job(key_path.is_file)
+        if not host or not key_exists:
             raise SSHStatusError("SSH key does not exist")
 
         try:
