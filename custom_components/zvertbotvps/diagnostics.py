@@ -9,7 +9,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import DOMAIN
 
-
 _REDACT_KEYS = {
     "host",
     "ip",
@@ -22,7 +21,16 @@ _REDACT_KEYS = {
     "key_path",
     "status_url",
     "username",
+    "name",
+    "email",
+    "display_ip",
+    "geoip",
+    "geo",
+    "city",
+    "isp",
 }
+
+_PRIVATE_DATA_KEYS = {"awg", "xray", "connections"}
 
 
 def _redact(value: Any) -> Any:
@@ -63,6 +71,16 @@ async def async_get_config_entry_diagnostics(
         result["coordinator"] = None
         return result
 
+    coordinator_data = coordinator.data
+    if isinstance(coordinator_data, Mapping):
+        safe_data = {
+            key: value
+            for key, value in coordinator_data.items()
+            if str(key).lower() not in _PRIVATE_DATA_KEYS
+        }
+    else:
+        safe_data = {}
+
     result["coordinator"] = {
         "mode": getattr(coordinator, "mode", None),
         "update_interval": (
@@ -74,13 +92,12 @@ async def async_get_config_entry_diagnostics(
         "connection": {
             "state": getattr(coordinator, "connection_state", None),
             "last_success": getattr(coordinator, "last_success", None),
-            "last_error": getattr(coordinator, "last_error", None),
             "consecutive_failures": getattr(
                 coordinator, "consecutive_failures", 0
             ),
             "next_retry": getattr(coordinator, "next_retry", None),
         },
-        "data": _redact(coordinator.data),
+        "data": _redact(safe_data),
     }
 
     return result
