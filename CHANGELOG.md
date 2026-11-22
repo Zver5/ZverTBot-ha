@@ -1,3 +1,13 @@
+## [1.3.4] - 2026-11-22
+
+### Security
+
+- Removed raw connection error text from public diagnostics to prevent SSH host/IP disclosure.
+- Excluded AWG, Xray and connection client collections from diagnostics.
+- Added redaction coverage for client names, emails, display IPs and GeoIP fields.
+- Added regression tests for sensitive diagnostic data.
+
+
 ## [1.3.3] - 2026-11-15
 
 ### Added
